@@ -99,7 +99,7 @@ function applyOp(op) {
 }
 
 function aiKey() {
-  return (state.key || process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || "").trim();
+  return (state.key || process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || "").trim();
 }
 
 function publicState() {
@@ -110,8 +110,9 @@ function publicState() {
   };
 }
 
-/* Briefing diario del Garmin Coach: guarda el subconjunto que usa la app
- * (metas del día, plan de comidas, workout, horarios) para el perfil p1. */
+/* Briefing diario del Garmin Coach: guarda el briefing completo (menos
+ * `estado`, que es interno del script) para el perfil p1. La tarjeta usa el
+ * resumen; el modal "briefing completo" muestra todo. */
 function saveCoach(b) {
   if (!b || !/^\d{4}-\d{2}-\d{2}$/.test(b.fecha || "")) return false;
   const n = b.nutricion || {};
@@ -119,13 +120,17 @@ function saveCoach(b) {
     nivel: b.nivel || null,
     score: b.score != null ? Number(b.score) : null,
     frase: b.score_frase || null,
+    nota_hrv: b.nota_hrv || null,
     alerta: b.alerta || null,
-    workout: b.workout ? {
-      nombre: b.workout.nombre, badge: b.workout.badge,
-      total_series: b.workout.total_series, tiempo_min: b.workout.tiempo_min
-    } : null,
+    fecha_legible: b.fecha_legible || null,
+    metricas: Array.isArray(b.metricas) ? b.metricas : null,
+    sueno: b.sueno || null,
+    clima: b.clima || null,
+    workout: b.workout || null,
     horarios: b.horarios || null,
     tenis: b.tenis ? { veredicto: b.tenis.veredicto, color: b.tenis.color } : null,
+    insights: Array.isArray(b.insights) ? b.insights : null,
+    ultima_actividad: b.ultima_actividad || null,
     nutricion: {
       objetivo: n.objetivo != null ? Number(n.objetivo) : null,
       proteina_g: n.proteina_g != null ? Number(n.proteina_g) : null,
@@ -162,6 +167,7 @@ function analyze(imageBase64, mediaType, cb) {
   const key = aiKey();
   if (!key) return cb({ status: 400, error: "Falta la API key de IA. Configúrala en ⚙️ Ajustes (sirve para todos los dispositivos)." });
   if (key.startsWith("sk-ant-")) return callAnthropic(key, imageBase64, mediaType, cb);
+  if (key.startsWith("AIza")) return callGemini(key, imageBase64, mediaType, cb);
   return callOpenAI(key, imageBase64, mediaType, cb);
 }
 
@@ -205,6 +211,28 @@ function callAnthropic(key, imageBase64, mediaType, cb) {
       "x-api-key": key, "anthropic-version": "2023-06-01"
     }
   }, body, j => (j.content || []).filter(b => b.type === "text").map(b => b.text).join(""), cb);
+}
+
+function callGemini(key, imageBase64, mediaType, cb) {
+  const body = JSON.stringify({
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: mediaType || "image/jpeg", data: imageBase64 } },
+        { text: PROMPT }
+      ]
+    }],
+    generationConfig: { maxOutputTokens: 2000, thinkingConfig: { thinkingBudget: 0 } }
+  });
+  apiRequest({
+    hostname: "generativelanguage.googleapis.com",
+    path: "/v1beta/models/gemini-2.5-flash:generateContent",
+    method: "POST",
+    headers: {
+      "content-type": "application/json", "content-length": Buffer.byteLength(body),
+      "x-goog-api-key": key
+    }
+  }, body, j => ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
+    .map(p => p.text || "").join(""), cb);
 }
 
 function callOpenAI(key, imageBase64, mediaType, cb) {

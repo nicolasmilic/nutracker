@@ -148,6 +148,42 @@
   }
   .cmeal .addbtn:active{transform:scale(.92);}
 
+  /* ===== briefing completo ===== */
+  .coach .morebtn{
+    display:block; width:100%; margin-top:11px; background:var(--input);
+    border:1px solid var(--border); color:var(--muted); border-radius:11px;
+    padding:9px 0; font-size:12px; font-weight:700; cursor:pointer;
+  }
+  .bf-h{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px;}
+  .bf-h h2{margin-bottom:0;}
+  .bf-h .bfdate{font-size:12px; color:var(--muted); font-weight:600;}
+  .bf-sec{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; font-weight:800; margin:18px 0 8px;}
+  .bf-row{display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid var(--border); font-size:13.5px;}
+  .bf-row:last-child{border-bottom:none;}
+  .bf-row .v{font-weight:700;}
+  .badge{font-size:10px; font-weight:800; border-radius:99px; padding:3px 9px; margin-left:8px;}
+  .badge.GOOD{background:var(--accent-dim); color:var(--accent);}
+  .badge.MOD{background:#332a12; color:var(--carb);}
+  .badge.POOR{background:#2a1518; color:#fca5a5;}
+  .badge.ND{background:#232b3d; color:var(--muted);}
+  .bf-ex{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border);}
+  .bf-ex:last-child{border-bottom:none;}
+  .bf-ex .fl{font-size:15px; width:20px; text-align:center;}
+  .bf-ex .fl.up{color:var(--accent);} .bf-ex .fl.down{color:var(--danger);}
+  .bf-ex .exb{flex:1; min-width:0;}
+  .bf-ex .exn{font-size:13.5px; font-weight:700;}
+  .bf-ex .exm{font-size:11px; color:var(--muted); margin-top:2px;}
+  .bf-ex .exw{text-align:right; white-space:nowrap;}
+  .bf-ex .exw b{font-size:14px;}
+  .bf-ex .exw div{font-size:11px; color:var(--muted); margin-top:2px;}
+  .bf-list{font-size:12.5px; color:var(--muted); line-height:1.6; padding-left:16px;}
+  .bf-insight{border:1px solid var(--border); border-left-width:3px; border-radius:12px; padding:10px 12px; margin-bottom:8px;}
+  .bf-insight .it{font-weight:800; font-size:13px;}
+  .bf-insight .ic{font-size:12px; color:var(--muted); margin-top:4px; line-height:1.55;}
+  .bf-fases{display:flex; height:8px; border-radius:99px; overflow:hidden; margin-top:8px;}
+  .bf-fases div{height:100%;}
+  .bf-faseleg{display:flex; gap:12px; font-size:11px; color:var(--muted); margin-top:6px;}
+
   /* ===== botones ===== */
   .bigbtns{display:flex; gap:10px; margin-bottom:20px;}
   .btn{
@@ -382,7 +418,7 @@
     <hr class="divider">
     <label>API key de IA (compartida)</label>
     <input id="sKey" type="password" placeholder="sk-ant-... o sk-...">
-    <div class="hint">Acepta Anthropic (<b>sk-ant-…</b>, en <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>) u OpenAI (<b>sk-…</b>, en <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>). Se guarda en el servidor y sirve para todos los dispositivos y perfiles.</div>
+    <div class="hint">Acepta <b>Google Gemini</b> (AIza…, <b>GRATIS</b> en <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>), Anthropic (sk-ant-…) u OpenAI (sk-…). Detecta sola cuál es. Se guarda en el servidor y sirve para todos los dispositivos y perfiles.</div>
 
     <button class="btn btn-primary" id="sSave">Guardar</button>
     <div class="datatools">
@@ -390,6 +426,14 @@
       <button id="btnImport">⬆ Importar datos</button>
     </div>
     <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </div>
+</div>
+
+<!-- ===== Modal: briefing completo ===== -->
+<div class="overlay" id="ovBriefing">
+  <div class="sheet">
+    <button class="closex" data-close="ovBriefing">✕</button>
+    <div id="briefingBody"></div>
   </div>
 </div>
 
@@ -664,7 +708,10 @@ function renderCoach(c){
     ${c.alerta ? `<div class="calerta">⚠️ ${esc(c.alerta)}</div>` : ""}
     ${c.tenis && c.tenis.veredicto ? `<div class="frase">🎾 ${esc(c.tenis.veredicto)}</div>` : ""}
     ${chips.length ? `<div class="chips">${chips.map(x => `<span>${esc(x)}</span>`).join("")}</div>` : ""}
-    ${meals ? `<details${coachOpen ? " open" : ""}><summary>Plan de comidas (${n.comidas.length}) — toca + para registrar</summary>${meals}</details>` : ""}`;
+    ${meals ? `<details${coachOpen ? " open" : ""}><summary>Plan de comidas (${n.comidas.length}) — toca + para registrar</summary>${meals}</details>` : ""}
+    ${(c.metricas || (c.workout && c.workout.ejercicios)) ? `<button class="morebtn" id="btnBriefing">📋 Ver briefing completo</button>` : ""}`;
+  const bb = el.querySelector("#btnBriefing");
+  if(bb) bb.onclick = () => showBriefing(c);
   const det = el.querySelector("details");
   if(det) det.addEventListener("toggle", () => { coachOpen = det.open; });
   el.querySelectorAll(".addbtn").forEach(b => b.onclick = () => {
@@ -677,6 +724,85 @@ function renderCoach(c){
     }}]);
     toast("Agregado del plan ✓");
   });
+}
+
+/* ================= briefing completo ================= */
+function showBriefing(c){
+  const parts = [];
+  const lvlColor = c.nivel === "ROJO" ? "var(--danger)" : c.nivel === "AMARILLO" ? "var(--carb)" : "var(--accent)";
+  parts.push(`<div class="bf-h"><h2>🎯 Briefing del coach</h2><span class="bfdate">${esc(c.fecha_legible || fmtDate(viewDate))}</span></div>`);
+  parts.push(`<div style="font-weight:800;font-size:16px;color:${lvlColor};margin-top:6px">${esc(c.nivel||"")} · ${c.score != null ? c.score : "—"}/100</div>`);
+  if(c.frase) parts.push(`<div class="hint" style="margin-top:6px">${esc(c.frase)}</div>`);
+  if(c.alerta) parts.push(`<div class="calerta" style="margin-top:10px">⚠️ ${esc(c.alerta)}</div>`);
+  if(c.nota_hrv) parts.push(`<div class="hint">💓 ${esc(c.nota_hrv)}</div>`);
+
+  if(c.metricas && c.metricas.length){
+    parts.push(`<div class="bf-sec">Recovery</div>` + c.metricas.map(m => {
+      const b = (m.badge || "ND").replace("N/D","ND");
+      return `<div class="bf-row"><span>${esc(m.nombre)}</span><span class="v">${esc(m.valor)}<span class="badge ${esc(b)}">${esc(m.badge||"—")}</span></span></div>`;
+    }).join(""));
+  }
+
+  if(c.sueno){
+    const s = c.sueno;
+    parts.push(`<div class="bf-sec">Sueño</div>
+      <div class="bf-row"><span>Duración</span><span class="v">${esc(s.duracion||"—")}</span></div>
+      <div class="bf-row"><span>Rango</span><span class="v">${esc(s.rango||"—")}</span></div>`);
+    if(s.deep_pct != null){
+      parts.push(`<div class="bf-fases">
+        <div style="width:${s.deep_pct}%;background:#3b5bdb"></div>
+        <div style="width:${s.light_pct||0}%;background:#5ab4ff"></div>
+        <div style="width:${s.rem_pct||0}%;background:#9b7bf7"></div>
+      </div>
+      <div class="bf-faseleg"><span>🟦 Profundo ${s.deep_pct}%</span><span>🩵 Ligero ${s.light_pct}%</span><span>🟪 REM ${s.rem_pct}%</span></div>`);
+    }
+  }
+
+  if(c.clima){
+    const cl = c.clima;
+    parts.push(`<div class="bf-sec">Clima — Lo Barnechea</div>
+      <div class="bf-row"><span>${esc(cl.icono||"")} ${esc(cl.condicion||"")}</span><span class="v">${cl.temp != null ? Math.round(cl.temp)+"°" : ""} <small style="color:var(--muted)">(ST ${cl.sensacion != null ? Math.round(cl.sensacion)+"°" : "—"})</small></span></div>
+      <div class="bf-row"><span>Máx / Mín · Lluvia · UV</span><span class="v">${cl.max!=null?Math.round(cl.max)+"°":"—"} / ${cl.min!=null?Math.round(cl.min)+"°":"—"} · ${cl.lluvia_pct!=null?cl.lluvia_pct+"%":"—"} · ${cl.uv_max!=null?cl.uv_max:"—"}</span></div>`);
+    if(cl.aire) parts.push(`<div class="bf-row"><span>Aire (AQI)</span><span class="v">${cl.aire.aqi} — ${esc(cl.aire.categoria||"")}</span></div>`);
+  }
+
+  if(c.tenis && c.tenis.veredicto) parts.push(`<div class="bf-sec">Tenis 13:00</div><div class="hint">🎾 ${esc(c.tenis.veredicto)}</div>`);
+
+  if(c.workout){
+    const w = c.workout;
+    parts.push(`<div class="bf-sec">Entrenamiento — ${esc(w.nombre||"")}${w.badge ? " · " + esc(w.badge) : ""}${w.total_series ? ` · ${w.total_series} series · ~${w.tiempo_min} min` : ""}</div>`);
+    if(w.ajustes && w.ajustes.length) parts.push(`<ul class="bf-list">${w.ajustes.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>`);
+    if(w.ejercicios && w.ejercicios.length){
+      parts.push(w.ejercicios.map(ex => {
+        const fl = (ex.flecha||"→").charAt(0);
+        const flCls = fl === "↑" ? "up" : fl === "↓" ? "down" : "";
+        return `<div class="bf-ex">
+          <div class="fl ${flCls}">${esc(ex.flecha||"→")}</div>
+          <div class="exb"><div class="exn">${esc(ex.nombre)}</div><div class="exm">${esc(ex.musculo||"")}${ex.descanso ? " · descanso " + esc(ex.descanso) : ""}</div></div>
+          <div class="exw"><b>${esc(ex.peso||"")}</b><div>${esc(ex.series||"")}</div></div>
+        </div>`;
+      }).join(""));
+    }
+    if(w.tips && w.tips.length) parts.push(`<div style="margin-top:8px"></div><ul class="bf-list">${w.tips.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>`);
+  }
+
+  if(c.insights && c.insights.length){
+    parts.push(`<div class="bf-sec">Insights</div>` + c.insights.map(i =>
+      `<div class="bf-insight" style="border-left-color:${esc(i.color||"var(--accent)")}">
+        <div class="it">${esc(i.icono||"")} ${esc(i.titulo||"")}</div>
+        <div class="ic">${esc(i.cuerpo||"")}</div>
+      </div>`).join(""));
+  }
+
+  if(c.ultima_actividad){
+    const u = c.ultima_actividad;
+    parts.push(`<div class="bf-sec">Última actividad</div>
+      <div class="bf-row"><span>${esc(u.nombre||"")}</span><span class="v">${esc(u.duracion||"")}</span></div>
+      <div class="bf-row"><span>${esc(u.hora||"")}${u.extra ? " · " + esc(u.extra) : ""}</span><span class="v">${u.calorias != null ? u.calorias + " kcal" : ""}${u.hr_avg ? " · ♥ " + u.hr_avg : ""}</span></div>`);
+  }
+
+  $("briefingBody").innerHTML = parts.join("");
+  open("ovBriefing");
 }
 
 /* ================= navegación de fecha ================= */
