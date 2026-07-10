@@ -1,0 +1,17 @@
+# Blueprint de Render: al crear el servicio desde este repo, Render lee este
+# archivo y deja todo configurado. Las variables sync:false se piden a mano.
+services:
+  - type: web
+    name: nutracker
+    runtime: node
+    plan: free
+    buildCommand: "echo sin build"
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: NT_PIN
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false

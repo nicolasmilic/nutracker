@@ -1,0 +1,13 @@
+{
+  "name": "nutracker",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Tracker de calorías y macros con foto + IA, multi-perfil y sincronizado",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

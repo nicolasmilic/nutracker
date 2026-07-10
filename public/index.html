@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1017">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<title>NuTracker — Calorías con IA</title>
+<style>
+  :root{
+    --bg:#0d1017; --card:#161b26; --card2:#1b2130; --border:#262e40; --input:#0b0e14;
+    --text:#eef1f7; --muted:#8d97ac; --accent:#4ade80; --accent2:#22c55e; --accent-dim:#14331f;
+    --prot:#60a5fa; --carb:#fbbf24; --fat:#f472b6; --danger:#f87171; --warn:#f59e0b;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(900px 420px at 50% -180px, #16241c 0%, transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    max-width:520px; margin:0 auto; padding:18px 16px 120px;
+  }
+  button{font-family:inherit;}
+
+  /* ===== header ===== */
+  h1{font-size:21px; font-weight:800; letter-spacing:-0.4px; display:flex; align-items:center; gap:8px;}
+  h1 .logo{font-size:24px;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
+  .topbar .right{display:flex; align-items:center; gap:12px;}
+  .syncdot{width:9px; height:9px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px rgba(74,222,128,.6); transition:all .3s;}
+  .syncdot.off{background:var(--warn); box-shadow:0 0 8px rgba(245,158,11,.6);}
+  .iconbtn{
+    background:var(--card); border:1px solid var(--border); color:var(--text);
+    border-radius:13px; width:42px; height:42px; font-size:17px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:border-color .15s;
+  }
+  .iconbtn:active{transform:scale(.94);}
+
+  /* ===== pestañas de perfil ===== */
+  .profiles{
+    display:flex; gap:4px; margin-bottom:16px; background:var(--card);
+    border:1px solid var(--border); border-radius:16px; padding:4px;
+  }
+  .profiles button{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:8px;
+    background:none; border:none; color:var(--muted); border-radius:12px;
+    padding:9px 0; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s;
+  }
+  .profiles button .av{
+    width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:800; background:#232b3d; color:var(--muted); transition:all .2s;
+  }
+  .profiles button.sel{background:var(--card2); color:var(--text); box-shadow:0 2px 10px rgba(0,0,0,.35);}
+  .profiles button.sel:nth-child(1) .av{background:var(--accent2); color:#03150a;}
+  .profiles button.sel:nth-child(2) .av{background:var(--prot); color:#081326;}
+
+  /* ===== fecha ===== */
+  .datebar{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:16px;}
+  .datebar button{
+    background:var(--card); border:1px solid var(--border); color:var(--muted);
+    width:34px; height:34px; border-radius:50%; font-size:17px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .datebar .datelabel{font-size:15px; font-weight:700; min-width:150px; text-align:center; letter-spacing:-0.2px;}
+
+  /* ===== resumen: anillo + macros ===== */
+  .summary{
+    background:linear-gradient(155deg,var(--card2),var(--card) 70%);
+    border:1px solid var(--border); border-radius:22px;
+    padding:22px 18px 18px; margin-bottom:14px; box-shadow:0 8px 30px rgba(0,0,0,.25);
+  }
+  .ringwrap{position:relative; width:190px; height:190px; margin:0 auto 14px;}
+  .ring{width:100%; height:100%; transform:rotate(-90deg);}
+  .ring circle{fill:none; stroke-width:13; stroke-linecap:round;}
+  .ring .track{stroke:#0b0e14;}
+  .ring .prog{
+    stroke:url(#gradOk); stroke-dasharray:527.8; stroke-dashoffset:527.8;
+    transition:stroke-dashoffset .7s cubic-bezier(.22,1,.36,1);
+  }
+  .ring .prog.over{stroke:url(#gradOver);}
+  .ringcenter{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+  }
+  .rkcal{font-size:42px; font-weight:800; letter-spacing:-1.5px; line-height:1;}
+  .rgoal{font-size:13px; color:var(--muted); margin-top:5px;}
+  .rleft{font-size:12px; font-weight:700; color:var(--accent); margin-top:7px; background:var(--accent-dim); border-radius:99px; padding:3px 12px;}
+  .rleft.over{color:#fca5a5; background:#2a1518;}
+  .macros{display:flex; gap:10px;}
+  .macro{flex:1; background:#10141d; border-radius:14px; padding:11px 12px 12px;}
+  .macro .lbl{font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; font-weight:700;}
+  .macro .val{font-size:17px; font-weight:800; margin-top:3px;}
+  .macro .val small{font-size:11px; color:var(--muted); font-weight:600;}
+  .macro .mbar{height:5px; background:#0b0e14; border-radius:99px; margin-top:8px; overflow:hidden;}
+  .macro .mbar div{height:100%; border-radius:99px; width:0%; transition:width .6s cubic-bezier(.22,1,.36,1);}
+  .macro.p .mbar div{background:var(--prot);} .macro.c .mbar div{background:var(--carb);} .macro.f .mbar div{background:var(--fat);}
+  .macro.p .val{color:var(--prot);} .macro.c .val{color:var(--carb);} .macro.f .val{color:var(--fat);}
+
+  /* ===== tarjeta coach ===== */
+  .coach{
+    background:var(--card); border:1px solid var(--border); border-left:4px solid var(--accent);
+    border-radius:var(--radius); padding:14px 16px; margin-bottom:14px; display:none;
+  }
+  .coach.nivel-AMARILLO{border-left-color:var(--carb);}
+  .coach.nivel-ROJO{border-left-color:var(--danger);}
+  .coach .head{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .coach .head .lvl{font-weight:800; font-size:15px;}
+  .coach.nivel-VERDE .lvl{color:var(--accent);}
+  .coach.nivel-AMARILLO .lvl{color:var(--carb);}
+  .coach.nivel-ROJO .lvl{color:var(--danger);}
+  .coach .head .wk{
+    font-size:11.5px; color:var(--text); font-weight:700; background:#232b3d;
+    border-radius:99px; padding:4px 11px; white-space:nowrap;
+  }
+  .coach .frase{font-size:12px; color:var(--muted); margin-top:7px; line-height:1.55;}
+  .coach .calerta{
+    background:#2a1518; border:1px solid #6b2a30; color:#fca5a5;
+    border-radius:10px; padding:8px 10px; font-size:12px; margin-top:8px; line-height:1.4;
+  }
+  .coach .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+  .coach .chips span{
+    background:var(--input); border:1px solid var(--border); border-radius:99px;
+    padding:4px 10px; font-size:11px; color:var(--muted); white-space:nowrap;
+  }
+  .coach details{margin-top:11px;}
+  .coach summary{
+    font-size:11.5px; color:var(--accent); cursor:pointer; font-weight:800;
+    text-transform:uppercase; letter-spacing:.6px; list-style:none;
+  }
+  .coach summary::before{content:"▸ ";}
+  .coach details[open] summary::before{content:"▾ ";}
+  .cmeal{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border);}
+  .cmeal:last-child{border-bottom:none;}
+  .cmeal .h{font-size:12px; color:var(--muted); min-width:38px; font-weight:600;}
+  .cmeal .b{flex:1; min-width:0;}
+  .cmeal .n{font-size:13px; font-weight:700;}
+  .cmeal .d{font-size:11px; color:var(--muted); margin-top:2px; line-height:1.4;}
+  .cmeal .m{font-size:10.5px; color:var(--muted); white-space:nowrap; text-align:right; line-height:1.5;}
+  .cmeal .m b{color:var(--accent); font-size:13px;}
+  .cmeal .addbtn{
+    background:var(--accent-dim); border:1px solid var(--accent2); color:var(--accent);
+    border-radius:11px; width:34px; height:34px; font-size:18px; cursor:pointer; flex-shrink:0;
+  }
+  .cmeal .addbtn:active{transform:scale(.92);}
+
+  /* ===== botones ===== */
+  .bigbtns{display:flex; gap:10px; margin-bottom:20px;}
+  .btn{
+    border:none; border-radius:var(--radius); padding:16px; font-size:16px; font-weight:800;
+    cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:transform .1s;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primary{
+    flex:2; background:linear-gradient(135deg,var(--accent2),#15803d); color:#03150a;
+    box-shadow:0 6px 22px rgba(34,197,94,.28);
+  }
+  .btn-ghost{flex:1; background:var(--card); border:1px solid var(--border); color:var(--text); font-weight:700; font-size:14px;}
+
+  /* ===== lista de comidas ===== */
+  .section-title{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1.2px; font-weight:800; margin:4px 2px 10px;}
+  .entry{
+    display:flex; align-items:center; gap:12px; background:var(--card);
+    border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; margin-bottom:9px;
+    animation:fadein .25s ease;
+  }
+  @keyframes fadein{from{opacity:0; transform:translateY(5px)} to{opacity:1; transform:none}}
+  .entry img{width:54px; height:54px; border-radius:13px; object-fit:cover; background:var(--input);}
+  .entry .noimg{width:54px; height:54px; border-radius:13px; background:var(--input); display:flex; align-items:center; justify-content:center; font-size:23px;}
+  .entry .info{flex:1; min-width:0;}
+  .entry .name{font-weight:700; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .entry .meta{font-size:11.5px; color:var(--muted); margin-top:4px;}
+  .entry .kcal{
+    font-weight:800; font-size:13.5px; color:var(--accent); white-space:nowrap;
+    background:var(--accent-dim); border-radius:99px; padding:5px 11px;
+  }
+  .entry .del{background:none; border:none; color:#5a6377; font-size:17px; cursor:pointer; padding:6px 2px;}
+  .empty{color:var(--muted); text-align:center; padding:34px 10px; font-size:14px; line-height:1.7;}
+  .empty .big{font-size:38px; display:block; margin-bottom:6px;}
+
+  /* ===== modales ===== */
+  .overlay{
+    position:fixed; inset:0; background:rgba(5,7,11,.7); display:none;
+    align-items:flex-end; justify-content:center; z-index:50; backdrop-filter:blur(4px);
+  }
+  .overlay.open{display:flex;}
+  .sheet{
+    background:var(--card); border:1px solid var(--border); border-bottom:none;
+    border-radius:24px 24px 0 0; width:100%; max-width:520px; max-height:88vh;
+    overflow-y:auto; padding:14px 20px 22px; animation:up .28s cubic-bezier(.22,1,.36,1);
+  }
+  .sheet::before{
+    content:""; display:block; width:40px; height:4px; border-radius:99px;
+    background:var(--border); margin:0 auto 14px;
+  }
+  @keyframes up{from{transform:translateY(50px); opacity:0} to{transform:none; opacity:1}}
+  .sheet h2{font-size:18px; margin-bottom:14px; letter-spacing:-0.3px;}
+  .sheet label{font-size:12.5px; color:var(--muted); display:block; margin:13px 0 6px; font-weight:600;}
+  .sheet input, .sheet textarea{
+    width:100%; background:var(--input); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:13px; font-size:15px; outline:none; transition:border-color .15s;
+  }
+  .sheet input:focus{border-color:var(--accent2);}
+  .row2{display:flex; gap:10px;}
+  .row2>div{flex:1;}
+  .sheet .btn{width:100%; margin-top:18px;}
+  .closex{float:right; background:none; border:none; color:var(--muted); font-size:19px; cursor:pointer; padding:2px 4px;}
+  .hint{font-size:12px; color:var(--muted); margin-top:8px; line-height:1.55;}
+  .hint a{color:var(--accent);}
+  .datatools{display:flex; gap:10px; margin-top:16px;}
+  .datatools button{
+    flex:1; background:var(--input); border:1px solid var(--border); color:var(--muted);
+    border-radius:11px; padding:11px 0; font-size:13px; cursor:pointer; font-weight:600;
+  }
+  .divider{border:none; border-top:1px solid var(--border); margin:18px 0 4px;}
+
+  /* ===== análisis ===== */
+  .preview{width:100%; border-radius:var(--radius); max-height:300px; object-fit:cover; margin-bottom:12px;}
+  .spinner{
+    width:38px; height:38px; border:3px solid var(--border); border-top-color:var(--accent);
+    border-radius:50%; animation:spin .8s linear infinite; margin:22px auto;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .analyzing{text-align:center; color:var(--muted); font-size:14px; padding:8px 0 20px;}
+  .item-row{display:flex; justify-content:space-between; font-size:14px; padding:9px 0; border-bottom:1px solid var(--border);}
+  .item-row:last-child{border-bottom:none;}
+  .item-row .imacros{color:var(--muted); font-size:12px; margin-top:3px;}
+  .conf{font-size:12px; color:var(--muted); margin-top:10px; font-style:italic; line-height:1.5;}
+  .mult{display:flex; gap:8px; margin-top:14px;}
+  .mult button{
+    flex:1; background:var(--input); border:1px solid var(--border); color:var(--text);
+    border-radius:11px; padding:10px 0; font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .mult button.sel{border-color:var(--accent); color:var(--accent); background:var(--accent-dim);}
+  .totline{display:flex; justify-content:space-between; font-weight:800; font-size:16px; margin-top:14px;}
+  .err{background:#2a1518; border:1px solid #6b2a30; color:#fca5a5; border-radius:12px; padding:12px; font-size:13px; margin-top:12px; line-height:1.5; word-break:break-word;}
+  .toast{
+    position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
+    background:var(--accent2); color:#03150a; font-weight:800; padding:12px 24px;
+    border-radius:99px; font-size:14px; z-index:99; display:none;
+    box-shadow:0 8px 24px rgba(34,197,94,.4);
+  }
+
+  /* ===== PIN ===== */
+  .pinwrap{align-items:center;}
+  .pincard{
+    background:var(--card); border:1px solid var(--border); border-radius:22px;
+    padding:30px 24px; width:calc(100% - 48px); max-width:340px; text-align:center; animation:up .28s ease;
+  }
+  .pincard h2{margin-bottom:6px;}
+  .pincard p{color:var(--muted); font-size:13px; margin-bottom:16px;}
+  .pincard input{
+    width:100%; background:var(--input); border:1px solid var(--border); color:var(--text);
+    border-radius:12px; padding:13px; font-size:20px; text-align:center; letter-spacing:7px; outline:none;
+  }
+  .pincard input:focus{border-color:var(--accent2);}
+  .pincard .btn{width:100%; margin-top:14px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1><span class="logo">🥗</span>NuTracker</h1>
+  <div class="right">
+    <div class="syncdot" id="syncDot" title="Sincronizado"></div>
+    <button class="iconbtn" id="btnSettings" title="Ajustes">⚙️</button>
+  </div>
+</div>
+
+<div class="profiles" id="profileTabs"></div>
+
+<div class="datebar">
+  <button id="prevDay">‹</button>
+  <div class="datelabel" id="dateLabel"></div>
+  <button id="nextDay">›</button>
+</div>
+
+<div class="summary">
+  <div class="ringwrap">
+    <svg class="ring" viewBox="0 0 200 200">
+      <defs>
+        <linearGradient id="gradOk" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#4ade80"/>
+        </linearGradient>
+        <linearGradient id="gradOver" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f59e0b"/><stop offset="1" stop-color="#f87171"/>
+        </linearGradient>
+      </defs>
+      <circle class="track" cx="100" cy="100" r="84"/>
+      <circle class="prog" id="ringProg" cx="100" cy="100" r="84"/>
+    </svg>
+    <div class="ringcenter">
+      <div class="rkcal" id="sumKcal">0</div>
+      <div class="rgoal">de <span id="goalKcal">2000</span> kcal</div>
+      <div class="rleft" id="kcalLeft">quedan 2000</div>
+    </div>
+  </div>
+  <div class="macros">
+    <div class="macro p">
+      <div class="lbl">Proteína</div>
+      <div class="val"><span id="sumProt">0</span><small id="goalProt"></small></div>
+      <div class="mbar"><div id="barProt"></div></div>
+    </div>
+    <div class="macro c">
+      <div class="lbl">Carbos</div>
+      <div class="val"><span id="sumCarb">0</span><small id="goalCarb"></small></div>
+      <div class="mbar"><div id="barCarb"></div></div>
+    </div>
+    <div class="macro f">
+      <div class="lbl">Grasas</div>
+      <div class="val"><span id="sumFat">0</span><small id="goalFat"></small></div>
+      <div class="mbar"><div id="barFat"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="coach" id="coachCard"></div>
+
+<div class="bigbtns">
+  <button class="btn btn-primary" id="btnPhoto">📸 Foto a mi plato</button>
+  <button class="btn btn-ghost" id="btnManual">✏️ Manual</button>
+</div>
+<input type="file" id="fileInput" accept="image/*" hidden>
+
+<div class="section-title">Comidas del día</div>
+<div id="entries"></div>
+
+<!-- ===== Modal: análisis ===== -->
+<div class="overlay" id="ovAnalyze">
+  <div class="sheet">
+    <button class="closex" data-close="ovAnalyze">✕</button>
+    <h2>Análisis del plato</h2>
+    <img class="preview" id="previewImg" alt="Foto del plato">
+    <div id="analyzeBody"></div>
+  </div>
+</div>
+
+<!-- ===== Modal: manual ===== -->
+<div class="overlay" id="ovManual">
+  <div class="sheet">
+    <button class="closex" data-close="ovManual">✕</button>
+    <h2>Agregar manual</h2>
+    <label>Nombre</label>
+    <input id="mName" placeholder="Ej: Yogurt con granola">
+    <div class="row2">
+      <div><label>Calorías (kcal)</label><input id="mKcal" type="number" inputmode="numeric" placeholder="0"></div>
+      <div><label>Proteína (g)</label><input id="mProt" type="number" inputmode="numeric" placeholder="0"></div>
+    </div>
+    <div class="row2">
+      <div><label>Carbos (g)</label><input id="mCarb" type="number" inputmode="numeric" placeholder="0"></div>
+      <div><label>Grasas (g)</label><input id="mFat" type="number" inputmode="numeric" placeholder="0"></div>
+    </div>
+    <button class="btn btn-primary" id="mAdd">Agregar</button>
+  </div>
+</div>
+
+<!-- ===== Modal: ajustes ===== -->
+<div class="overlay" id="ovSettings">
+  <div class="sheet">
+    <button class="closex" data-close="ovSettings">✕</button>
+    <h2>Ajustes</h2>
+
+    <label>Metas de <span id="lblProfName">este perfil</span> — calorías diarias</label>
+    <input id="sGoal" type="number" inputmode="numeric" placeholder="2000">
+    <div class="row2">
+      <div><label>Meta proteína (g)</label><input id="sGProt" type="number" inputmode="numeric" placeholder="opcional"></div>
+      <div><label>Meta carbos (g)</label><input id="sGCarb" type="number" inputmode="numeric" placeholder="opcional"></div>
+    </div>
+
+    <hr class="divider">
+    <label>Nombres de los perfiles</label>
+    <div class="row2">
+      <div><input id="sName1" maxlength="20" placeholder="Yo"></div>
+      <div><input id="sName2" maxlength="20" placeholder="Hermano"></div>
+    </div>
+
+    <hr class="divider">
+    <label>API key de IA (compartida)</label>
+    <input id="sKey" type="password" placeholder="sk-ant-... o sk-...">
+    <div class="hint">Acepta Anthropic (<b>sk-ant-…</b>, en <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>) u OpenAI (<b>sk-…</b>, en <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a>). Se guarda en el servidor y sirve para todos los dispositivos y perfiles.</div>
+
+    <button class="btn btn-primary" id="sSave">Guardar</button>
+    <div class="datatools">
+      <button id="btnExport">⬇ Exportar datos</button>
+      <button id="btnImport">⬆ Importar datos</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </div>
+</div>
+
+<!-- ===== Modal: PIN ===== -->
+<div class="overlay pinwrap" id="ovPin">
+  <div class="pincard">
+    <h2>🔒 NuTracker</h2>
+    <p>Ingresa el PIN de acceso</p>
+    <input id="pinInput" type="password" inputmode="numeric" autocomplete="off">
+    <button class="btn btn-primary" id="pinOk">Entrar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= estado + sync =================
+ * El servidor es la fuente de verdad. El navegador guarda una copia (caché)
+ * + una cola de operaciones pendientes, así la app funciona offline y
+ * sincroniza al volver. Cada operación lleva el perfil (pid).
+ */
+const MOCK = location.hash.includes("mock");
+function freshProfile(name){ return {name, log:{}, settings:{goal:2000, gprot:null, gcarb:null}}; }
+let state = { profiles: { p1: freshProfile("Yo"), p2: freshProfile("Hermano") }, coach: {}, hasKey: false };
+let queue = [];
+try{ const c = JSON.parse(localStorage.getItem("nt_cache2")); if(c && c.profiles) state = c; }catch(e){}
+try{ const q = JSON.parse(localStorage.getItem("nt_queue2")); if(Array.isArray(q)) queue = q; }catch(e){}
+
+let pid = localStorage.getItem("nt_pid") || "p1";
+if(!state.profiles[pid]) pid = "p1";
+let viewDate = todayStr();
+let pending = null;    // resultado de análisis aún no agregado
+let pendingImg = null; // dataURL miniatura
+let mult = 1;
+
+function prof(){ return state.profiles[pid]; }
+
+function persistLocal(){
+  try{ localStorage.setItem("nt_queue2", JSON.stringify(queue)); }catch(e){}
+  try{ localStorage.setItem("nt_cache2", JSON.stringify(state)); }
+  catch(e){
+    // localStorage lleno: quitar miniaturas de días anteriores y reintentar
+    Object.values(state.profiles).forEach(pr =>
+      Object.keys(pr.log).forEach(d => { if(d !== todayStr()) pr.log[d].forEach(x => delete x.img); })
+    );
+    try{ localStorage.setItem("nt_cache2", JSON.stringify(state)); }catch(e2){}
+  }
+}
+
+function applyOp(s, op){
+  const pr = s.profiles[op.pid];
+  if(op.t === "add" && pr){
+    const arr = (pr.log[op.date] = pr.log[op.date] || []);
+    if(!arr.some(e => e.id === op.entry.id)) arr.push(op.entry);
+  }else if(op.t === "del" && pr){
+    if(pr.log[op.date]) pr.log[op.date] = pr.log[op.date].filter(e => e.id !== op.id);
+  }else if(op.t === "set" && pr){
+    const g = op.settings;
+    if(g.goal != null) pr.settings.goal = Number(g.goal) || 2000;
+    if("gprot" in g) pr.settings.gprot = g.gprot;
+    if("gcarb" in g) pr.settings.gcarb = g.gcarb;
+  }else if(op.t === "rename" && pr){
+    pr.name = op.name;
+  }else if(op.t === "key" && op.key){
+    s.hasKey = true;
+  }
+}
+
+function mutate(ops){
+  ops.forEach(op => { applyOp(state, op); queue.push(op); });
+  persistLocal();
+  render();
+  sync();
+}
+
+/* --- PIN (solo si el servidor lo exige, p. ej. hosteado en internet) --- */
+function pinHeaders(){
+  return {"content-type": "application/json", "x-nt-pin": localStorage.getItem("nt_pin") || ""};
+}
+function askPin(){
+  const ov = document.getElementById("ovPin");
+  if(ov.classList.contains("open")) return;
+  ov.classList.add("open");
+  setTimeout(() => document.getElementById("pinInput").focus(), 100);
+}
+document.getElementById("pinOk").onclick = submitPin;
+document.getElementById("pinInput").addEventListener("keydown", e => { if(e.key === "Enter") submitPin(); });
+function submitPin(){
+  const v = document.getElementById("pinInput").value.trim();
+  if(!v) return;
+  localStorage.setItem("nt_pin", v);
+  document.getElementById("pinInput").value = "";
+  document.getElementById("ovPin").classList.remove("open");
+  sync();
+}
+
+let syncing = false, resyncTimer = null;
+async function sync(){
+  if(syncing){ clearTimeout(resyncTimer); resyncTimer = setTimeout(sync, 800); return; }
+  syncing = true;
+  const sent = queue.length;
+  try{
+    const resp = await fetch("/api/sync", {
+      method: "POST",
+      headers: pinHeaders(),
+      body: JSON.stringify({ops: queue.slice(0, sent)})
+    });
+    if(resp.status === 401){ askPin(); throw new Error("pin"); }
+    if(!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+    queue = queue.slice(sent);          // lo enviado ya está en el servidor
+    state = data;
+    queue.forEach(op => applyOp(state, op)); // reaplica lo que llegó mientras tanto
+    if(!state.profiles[pid]) pid = "p1";
+    persistLocal();
+    setOnline(true);
+    render();
+  }catch(e){
+    setOnline(false);
+  }finally{
+    syncing = false;
+    if(queue.length){ clearTimeout(resyncTimer); resyncTimer = setTimeout(sync, 5000); }
+  }
+}
+
+function setOnline(on){
+  const d = document.getElementById("syncDot");
+  d.classList.toggle("off", !on);
+  d.title = on ? "Sincronizado" : "Sin conexión — guardado en este dispositivo, se sincroniza al reconectar";
+}
+window.addEventListener("online", sync);
+document.addEventListener("visibilitychange", () => { if(!document.hidden) sync(); });
+setInterval(() => { if(!document.hidden) sync(); }, 30000);
+
+/* ================= helpers ================= */
+function todayStr(d){
+  d = d || new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function newId(){
+  return (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
+}
+function getEntries(date){ return prof().log[date] || []; }
+
+const $ = id => document.getElementById(id);
+function open(id){ $(id).classList.add("open"); }
+function close(id){ $(id).classList.remove("open"); }
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => close(b.dataset.close));
+document.querySelectorAll(".overlay:not(#ovPin)").forEach(ov => ov.addEventListener("click", e => { if(e.target === ov) ov.classList.remove("open"); }));
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.style.display = "block";
+  clearTimeout(t._t); t._t = setTimeout(() => t.style.display = "none", 2200);
+}
+function fmtDate(ds){
+  const [y,m,d] = ds.split("-").map(Number);
+  const dt = new Date(y, m-1, d);
+  if(ds === todayStr()) return "Hoy";
+  const yest = new Date(); yest.setDate(yest.getDate()-1);
+  if(ds === todayStr(yest)) return "Ayer";
+  return dt.toLocaleDateString("es-CL", {weekday:"short", day:"numeric", month:"short"});
+}
+function esc(s){ const d = document.createElement("div"); d.textContent = String(s == null ? "" : s); return d.innerHTML; }
+function round1(n){ return Math.round(n*10)/10; }
+
+/* ================= render ================= */
+const RING_C = 527.8; // 2π·84
+
+function render(){
+  // pestañas de perfil (avatar con inicial)
+  $("profileTabs").innerHTML = Object.keys(state.profiles).map(k => {
+    const name = state.profiles[k].name;
+    return `<button data-pid="${k}" class="${k===pid?"sel":""}">
+      <span class="av">${esc((name||"?").charAt(0).toUpperCase())}</span>${esc(name)}
+    </button>`;
+  }).join("");
+  document.querySelectorAll("#profileTabs button").forEach(b => b.onclick = () => {
+    pid = b.dataset.pid;
+    localStorage.setItem("nt_pid", pid);
+    render();
+  });
+
+  $("dateLabel").textContent = fmtDate(viewDate);
+  $("nextDay").style.visibility = viewDate >= todayStr() ? "hidden" : "visible";
+  const es = getEntries(viewDate);
+  const tot = es.reduce((a,e) => ({k:a.k+e.kcal, p:a.p+e.prot, c:a.c+e.carb, f:a.f+e.fat}), {k:0,p:0,c:0,f:0});
+  const st = prof().settings;
+  // si hay briefing del coach para este día (perfil p1), sus metas mandan
+  const coach = pid === "p1" ? (state.coach || {})[viewDate] : null;
+  const cn = coach && coach.nutricion;
+  const goal = (cn && cn.objetivo) || Number(st.goal) || 2000;
+  const gp = (cn && cn.proteina_g) || st.gprot;
+  const gc = (cn && cn.carbos_g) || st.gcarb;
+  const gf = cn && cn.grasas_g;
+
+  // anillo de calorías
+  $("sumKcal").textContent = Math.round(tot.k);
+  $("goalKcal").textContent = goal;
+  const pct = Math.min(1, tot.k/goal);
+  const ring = $("ringProg");
+  ring.style.strokeDashoffset = RING_C * (1 - pct);
+  ring.classList.toggle("over", tot.k > goal);
+  const left = Math.round(goal - tot.k);
+  const lft = $("kcalLeft");
+  lft.textContent = left >= 0 ? "quedan " + left : (-left) + " de más";
+  lft.classList.toggle("over", left < 0);
+
+  // macros con barra vs meta
+  const setMacro = (val, goalG, sumId, goalId, barId) => {
+    $(sumId).textContent = Math.round(val) + " g";
+    $(goalId).textContent = goalG ? " / " + goalG + " g" : "";
+    $(barId).style.width = goalG ? Math.min(100, val/goalG*100) + "%" : "0%";
+  };
+  setMacro(tot.p, gp, "sumProt", "goalProt", "barProt");
+  setMacro(tot.c, gc, "sumCarb", "goalCarb", "barCarb");
+  setMacro(tot.f, gf, "sumFat", "goalFat", "barFat");
+
+  renderCoach(coach);
+
+  const wrap = $("entries");
+  if(!es.length){
+    wrap.innerHTML = '<div class="empty"><span class="big">🍽️</span>Nada registrado todavía.<br>Sácale una foto a tu plato 📸</div>';
+    return;
+  }
+  wrap.innerHTML = es.slice().reverse().map(e => `
+    <div class="entry">
+      ${e.img ? `<img src="${e.img}" alt="">` : `<div class="noimg">🍽️</div>`}
+      <div class="info">
+        <div class="name">${esc(e.name)}</div>
+        <div class="meta">${esc(e.time||"")} · P ${Math.round(e.prot)}g · C ${Math.round(e.carb)}g · G ${Math.round(e.fat)}g</div>
+      </div>
+      <div class="kcal">${Math.round(e.kcal)} kcal</div>
+      <button class="del" data-id="${esc(e.id)}" title="Eliminar">🗑</button>
+    </div>`).join("");
+  wrap.querySelectorAll(".del").forEach(b => b.onclick = () => {
+    mutate([{t:"del", pid, date: viewDate, id: isNaN(Number(b.dataset.id)) ? b.dataset.id : Number(b.dataset.id)}]);
+  });
+}
+
+/* ================= tarjeta coach ================= */
+let coachOpen = false; // recordar si el plan de comidas está desplegado entre renders
+function renderCoach(c){
+  const el = $("coachCard");
+  if(!c){ el.style.display = "none"; el.innerHTML = ""; return; }
+  const n = c.nutricion || {};
+  const h = c.horarios || {};
+  const chips = [];
+  if(h.luz_solar) chips.push("☀️ Luz " + h.luz_solar);
+  if(h.primer_cafe) chips.push("☕ Café " + h.primer_cafe);
+  if(h.corte_cafeina) chips.push("⛔ Corte cafeína " + h.corte_cafeina);
+  if(h.dormir_objetivo) chips.push("😴 Dormir " + h.dormir_objetivo);
+  if(n.hidratacion) chips.push("💧 " + n.hidratacion.split(".")[0]);
+  const meals = (n.comidas || []).map((m,i) => {
+    const kcal = Math.round((m.p||0)*4 + (m.c||0)*4 + (m.g||0)*9);
+    return `<div class="cmeal">
+      <div class="h">${esc(m.hora||"")}</div>
+      <div class="b"><div class="n">${esc(m.nombre||"Comida")}</div><div class="d">${esc(m.detalle||"")}</div></div>
+      <div class="m"><b>${kcal}</b><br>P${m.p||0} C${m.c||0} G${m.g||0}</div>
+      <button class="addbtn" data-i="${i}" title="Registrar esta comida">+</button>
+    </div>`;
+  }).join("");
+  el.className = "coach nivel-" + (c.nivel || "VERDE");
+  el.style.display = "block";
+  el.innerHTML = `
+    <div class="head">
+      <div class="lvl">🎯 Coach · ${esc(c.nivel||"")}${c.score != null ? " " + c.score : ""}</div>
+      ${c.workout ? `<div class="wk">${esc((c.workout.nombre||"") + (c.workout.badge ? " · " + c.workout.badge : ""))}</div>` : ""}
+    </div>
+    ${c.frase ? `<div class="frase">${esc(c.frase)}</div>` : ""}
+    ${c.alerta ? `<div class="calerta">⚠️ ${esc(c.alerta)}</div>` : ""}
+    ${c.tenis && c.tenis.veredicto ? `<div class="frase">🎾 ${esc(c.tenis.veredicto)}</div>` : ""}
+    ${chips.length ? `<div class="chips">${chips.map(x => `<span>${esc(x)}</span>`).join("")}</div>` : ""}
+    ${meals ? `<details${coachOpen ? " open" : ""}><summary>Plan de comidas (${n.comidas.length}) — toca + para registrar</summary>${meals}</details>` : ""}`;
+  const det = el.querySelector("details");
+  if(det) det.addEventListener("toggle", () => { coachOpen = det.open; });
+  el.querySelectorAll(".addbtn").forEach(b => b.onclick = () => {
+    const m = n.comidas[Number(b.dataset.i)];
+    mutate([{t:"add", pid, date: viewDate, entry: {
+      id: newId(), name: m.nombre || "Comida",
+      kcal: (m.p||0)*4 + (m.c||0)*4 + (m.g||0)*9,
+      prot: m.p||0, carb: m.c||0, fat: m.g||0,
+      time: m.hora || "", img: null
+    }}]);
+    toast("Agregado del plan ✓");
+  });
+}
+
+/* ================= navegación de fecha ================= */
+$("prevDay").onclick = () => { viewDate = shiftDate(viewDate,-1); render(); };
+$("nextDay").onclick = () => { viewDate = shiftDate(viewDate, 1); render(); };
+function shiftDate(ds, n){
+  const [y,m,d] = ds.split("-").map(Number);
+  const dt = new Date(y, m-1, d+n);
+  return todayStr(dt);
+}
+
+/* ================= ajustes ================= */
+$("btnSettings").onclick = () => {
+  const st = prof().settings;
+  $("lblProfName").textContent = prof().name;
+  $("sKey").value = "";
+  $("sKey").placeholder = state.hasKey ? "configurada ✓ (escribe para cambiarla)" : "sk-ant-... o sk-...";
+  $("sGoal").value = st.goal || "";
+  $("sGProt").value = st.gprot || "";
+  $("sGCarb").value = st.gcarb || "";
+  $("sName1").value = state.profiles.p1.name;
+  $("sName2").value = state.profiles.p2.name;
+  open("ovSettings");
+};
+$("sSave").onclick = () => {
+  const ops = [{t:"set", pid, settings: {
+    goal: Number($("sGoal").value) || 2000,
+    gprot: Number($("sGProt").value) || null,
+    gcarb: Number($("sGCarb").value) || null
+  }}];
+  const n1 = $("sName1").value.trim(), n2 = $("sName2").value.trim();
+  if(n1 && n1 !== state.profiles.p1.name) ops.push({t:"rename", pid:"p1", name:n1.slice(0,20)});
+  if(n2 && n2 !== state.profiles.p2.name) ops.push({t:"rename", pid:"p2", name:n2.slice(0,20)});
+  const k = $("sKey").value.trim();
+  if(k) ops.push({t:"key", key:k});
+  mutate(ops);
+  close("ovSettings"); toast("Guardado ✓");
+};
+
+/* ================= exportar / importar ================= */
+$("btnExport").onclick = () => {
+  const blob = new Blob([JSON.stringify({profiles: state.profiles}, null, 2)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "nutracker-" + todayStr() + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+$("btnImport").onclick = () => { $("importFile").value = ""; $("importFile").click(); };
+$("importFile").addEventListener("change", e => {
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      const j = JSON.parse(r.result);
+      const ops = [];
+      const pushLog = (log, targetPid) => {
+        Object.keys(log || {}).forEach(date => {
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Array.isArray(log[date])) return;
+          log[date].forEach(en => {
+            if(en && typeof en.kcal === "number"){
+              if(en.id == null) en.id = newId();
+              ops.push({t:"add", pid: targetPid, date, entry: en});
+            }
+          });
+        });
+      };
+      if(j.profiles){ // export propio: respeta perfiles
+        Object.keys(j.profiles).forEach(k => pushLog(j.profiles[k].log, state.profiles[k] ? k : pid));
+      }else{ // export v1 {log} o nt_log crudo del NuTracker antiguo → al perfil actual
+        pushLog(j.log || j, pid);
+      }
+      if(!ops.length){ toast("El archivo no tiene comidas válidas"); return; }
+      mutate(ops);
+      close("ovSettings");
+      toast(ops.length + " comidas importadas ✓");
+    }catch(err){ toast("No se pudo leer el archivo"); }
+  };
+  r.readAsText(f);
+});
+
+/* ================= manual ================= */
+$("btnManual").onclick = () => { ["mName","mKcal","mProt","mCarb","mFat"].forEach(i => $(i).value=""); open("ovManual"); };
+$("mAdd").onclick = () => {
+  const name = $("mName").value.trim() || "Comida";
+  const kcal = Number($("mKcal").value) || 0;
+  if(!kcal){ toast("Ingresa las calorías"); return; }
+  mutate([{t:"add", pid, date: viewDate, entry: {
+    id: newId(), name, kcal,
+    prot: Number($("mProt").value)||0, carb: Number($("mCarb").value)||0, fat: Number($("mFat").value)||0,
+    time: new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}), img: null
+  }}]);
+  close("ovManual"); toast("Agregado ✓");
+};
+
+/* ================= foto + análisis ================= */
+$("btnPhoto").onclick = () => {
+  if(!MOCK && !state.hasKey){
+    toast("Primero configura tu API key");
+    $("btnSettings").click();
+    return;
+  }
+  $("fileInput").value = "";
+  $("fileInput").click();
+};
+
+$("fileInput").addEventListener("change", async e => {
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const {big, thumb} = await resizeImage(file);
+  pendingImg = thumb;
+  $("previewImg").src = big.dataUrl;
+  showAnalyzing();
+  open("ovAnalyze");
+  try{
+    const result = MOCK ? await mockAnalyze() : await analyzeOnServer(big.base64, big.mediaType);
+    pending = result; mult = 1;
+    showResult();
+  }catch(err){
+    showError(err);
+  }
+});
+
+function resizeImage(file){
+  return new Promise((resolve,reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const make = (max, q) => {
+        const scale = Math.min(1, max/Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        return c.toDataURL("image/jpeg", q);
+      };
+      const bigUrl = make(1100, .85);
+      resolve({
+        big: { dataUrl: bigUrl, base64: bigUrl.split(",")[1], mediaType: "image/jpeg" },
+        thumb: make(120, .6)
+      });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("No se pudo leer la imagen")); };
+    img.src = url;
+  });
+}
+
+async function analyzeOnServer(base64, mediaType){
+  let resp;
+  try{
+    resp = await fetch("/api/analyze", {
+      method: "POST",
+      headers: pinHeaders(),
+      body: JSON.stringify({image: base64, mediaType})
+    });
+  }catch(e){
+    throw new Error("Sin conexión con el servidor. El análisis con IA necesita conexión; puedes agregar la comida en modo ✏️ Manual.");
+  }
+  if(resp.status === 401){ askPin(); throw new Error("Necesitas ingresar el PIN de acceso."); }
+  const data = await resp.json().catch(() => ({}));
+  if(!resp.ok) throw new Error(data.error || ("Error " + resp.status));
+  return parseResult(data.text || "");
+}
+
+function parseResult(text){
+  let t = text.trim().replace(/^```(json)?/i,"").replace(/```$/,"").trim();
+  const start = t.indexOf("{"), end = t.lastIndexOf("}");
+  if(start === -1 || end === -1) throw new Error("La IA no devolvió un resultado válido. Intenta con otra foto.");
+  const j = JSON.parse(t.slice(start, end+1));
+  if(j.error) throw new Error(j.error);
+  if(!j.total || typeof j.total.kcal !== "number") throw new Error("Resultado incompleto de la IA. Intenta de nuevo.");
+  j.items = Array.isArray(j.items) ? j.items : [];
+  return j;
+}
+
+function mockAnalyze(){
+  return new Promise(r => setTimeout(() => r({
+    plato: "Pollo con arroz y ensalada",
+    items: [
+      {nombre:"Pechuga de pollo", porcion:"150 g", kcal:248, prot:46, carb:0, grasa:5},
+      {nombre:"Arroz blanco", porcion:"180 g", kcal:234, prot:5, carb:51, grasa:1},
+      {nombre:"Ensalada mixta", porcion:"80 g", kcal:35, prot:1, carb:5, grasa:1}
+    ],
+    total: {kcal:517, prot:52, carb:56, grasa:7},
+    confianza: "media",
+    nota: "Porciones estimadas por tamaño del plato (modo demo)."
+  }), 900));
+}
+
+/* ================= vistas del modal de análisis ================= */
+function showAnalyzing(){
+  $("analyzeBody").innerHTML = '<div class="spinner"></div><div class="analyzing">Analizando tu plato con IA…</div>';
+}
+function showError(err){
+  $("analyzeBody").innerHTML = '<div class="err">⚠️ ' + esc(err.message||err) + '</div>' +
+    '<button class="btn btn-ghost" style="width:100%;margin-top:14px" onclick="document.getElementById(\'fileInput\').click()">Reintentar con otra foto</button>';
+}
+function showResult(){
+  const r = pending;
+  const items = r.items.map(it => `
+    <div class="item-row">
+      <div>
+        <div>${esc(it.nombre)} <span style="color:var(--muted)">· ${esc(it.porcion||"")}</span></div>
+        <div class="imacros">P ${round1((it.prot||0)*mult)}g · C ${round1((it.carb||0)*mult)}g · G ${round1((it.grasa||0)*mult)}g</div>
+      </div>
+      <div style="font-weight:700">${Math.round((it.kcal||0)*mult)} kcal</div>
+    </div>`).join("");
+  const t = r.total;
+  $("analyzeBody").innerHTML = `
+    <div style="font-weight:800;font-size:17px;margin-bottom:8px">${esc(r.plato||"Plato")}</div>
+    ${items}
+    <div style="font-size:13px;color:var(--muted);margin-top:14px">¿Comiste todo el plato? Ajusta la porción:</div>
+    <div class="mult" id="multBtns">
+      ${[0.5,0.75,1,1.5,2].map(m => `<button data-m="${m}" class="${m===mult?"sel":""}">${m===1?"Todo":"×"+m}</button>`).join("")}
+    </div>
+    <div class="totline">
+      <span>Total</span>
+      <span style="color:var(--accent)">${Math.round(t.kcal*mult)} kcal</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:4px">
+      <span>Proteína ${round1(t.prot*mult)}g</span><span>Carbos ${round1(t.carb*mult)}g</span><span>Grasas ${round1(t.grasa*mult)}g</span>
+    </div>
+    <div class="conf">Confianza: ${esc(r.confianza||"—")}. ${esc(r.nota||"")}</div>
+    <button class="btn btn-primary" id="btnAddEntry">Agregar al registro ✓</button>`;
+  document.querySelectorAll("#multBtns button").forEach(b => b.onclick = () => { mult = Number(b.dataset.m); showResult(); });
+  $("btnAddEntry").onclick = () => {
+    const t = pending.total;
+    mutate([{t:"add", pid, date: viewDate, entry: {
+      id: newId(), name: pending.plato || "Plato",
+      kcal: t.kcal*mult, prot: (t.prot||0)*mult, carb: (t.carb||0)*mult, fat: (t.grasa||0)*mult,
+      time: new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}), img: pendingImg
+    }}]);
+    pending = null; pendingImg = null;
+    close("ovAnalyze"); toast("Agregado ✓");
+  };
+}
+
+/* ================= arranque ================= */
+if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+render();
+sync();
+})();
+</script>
+</body>
+</html>
