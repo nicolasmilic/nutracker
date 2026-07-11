@@ -4,7 +4,7 @@
     {
       "name": "nutracker",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["server.js"],
+      "runtimeArgs": ["--use-system-ca", "server.js"],
       "port": 3210
     }
   ]

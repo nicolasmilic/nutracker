@@ -2,5 +2,5 @@
 title NuTracker
 cd /d "%~dp0"
 start "" http://localhost:3210
-node server.js
+node --use-system-ca server.js
 pause

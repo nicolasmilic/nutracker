@@ -147,6 +147,10 @@
     border-radius:11px; width:34px; height:34px; font-size:18px; cursor:pointer; flex-shrink:0;
   }
   .cmeal .addbtn:active{transform:scale(.92);}
+  .cmeal.done .n, .cmeal.done .d{color:var(--muted); text-decoration:line-through;}
+  .cmeal.done .addbtn{background:none; border-color:var(--border); cursor:default;}
+  .coach .chips span.chk{cursor:pointer; user-select:none; transition:all .15s;}
+  .coach .chips span.done{background:var(--accent-dim); border-color:var(--accent2); color:var(--accent);}
 
   /* ===== briefing completo ===== */
   .coach .morebtn{
@@ -166,8 +170,11 @@
   .badge.MOD{background:#332a12; color:var(--carb);}
   .badge.POOR{background:#2a1518; color:#fca5a5;}
   .badge.ND{background:#232b3d; color:var(--muted);}
-  .bf-ex{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border);}
+  .bf-ex{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); cursor:pointer; user-select:none;}
   .bf-ex:last-child{border-bottom:none;}
+  .bf-ex.done .exn, .bf-ex.done .exm, .bf-ex.done .exw{color:var(--muted); text-decoration:line-through;}
+  .bf-ex.done .fl{color:var(--accent); text-decoration:none;}
+  .bf-hint{font-size:11px; color:var(--muted); margin:2px 0 6px; font-style:italic;}
   .bf-ex .fl{font-size:15px; width:20px; text-align:center;}
   .bf-ex .fl.up{color:var(--accent);} .bf-ex .fl.down{color:var(--danger);}
   .bf-ex .exb{flex:1; min-width:0;}
@@ -296,6 +303,18 @@
   }
   .pincard input:focus{border-color:var(--accent2);}
   .pincard .btn{width:100%; margin-top:14px;}
+  .whobtn{
+    display:flex; align-items:center; justify-content:center; gap:11px; width:100%;
+    background:var(--input); border:1px solid var(--border); color:var(--text);
+    border-radius:14px; padding:14px; font-size:16px; font-weight:800; cursor:pointer; margin-top:10px;
+  }
+  .whobtn:active{transform:scale(.97);}
+  .whobtn .av{
+    width:34px; height:34px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:15px; font-weight:800;
+  }
+  .whobtn:nth-of-type(1) .av{background:var(--accent2); color:#03150a;}
+  .whobtn:nth-of-type(2) .av{background:var(--prot); color:#081326;}
 </style>
 </head>
 <body>
@@ -437,6 +456,15 @@
   </div>
 </div>
 
+<!-- ===== Modal: ¿quién eres? (primera vez en el dispositivo) ===== -->
+<div class="overlay pinwrap" id="ovWho">
+  <div class="pincard">
+    <h2>🥗 ¡Hola!</h2>
+    <p>¿Quién eres? Este dispositivo recordará tu perfil.</p>
+    <div id="whoBtns"></div>
+  </div>
+</div>
+
 <!-- ===== Modal: PIN ===== -->
 <div class="overlay pinwrap" id="ovPin">
   <div class="pincard">
@@ -502,6 +530,9 @@ function applyOp(s, op){
     pr.name = op.name;
   }else if(op.t === "key" && op.key){
     s.hasKey = true;
+  }else if(op.t === "check" && s.coach && s.coach[op.date]){
+    const ch = (s.coach[op.date].checks = s.coach[op.date].checks || {});
+    if(op.done) ch[op.key] = true; else delete ch[op.key];
   }
 }
 
@@ -585,7 +616,7 @@ const $ = id => document.getElementById(id);
 function open(id){ $(id).classList.add("open"); }
 function close(id){ $(id).classList.remove("open"); }
 document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => close(b.dataset.close));
-document.querySelectorAll(".overlay:not(#ovPin)").forEach(ov => ov.addEventListener("click", e => { if(e.target === ov) ov.classList.remove("open"); }));
+document.querySelectorAll(".overlay:not(#ovPin):not(#ovWho)").forEach(ov => ov.addEventListener("click", e => { if(e.target === ov) ov.classList.remove("open"); }));
 function toast(msg){
   const t = $("toast"); t.textContent = msg; t.style.display = "block";
   clearTimeout(t._t); t._t = setTimeout(() => t.style.display = "none", 2200);
@@ -617,6 +648,7 @@ function render(){
     localStorage.setItem("nt_pid", pid);
     render();
   });
+  if($("ovWho").classList.contains("open")) renderWho(); // nombres frescos tras el primer sync
 
   $("dateLabel").textContent = fmtDate(viewDate);
   $("nextDay").style.visibility = viewDate >= todayStr() ? "hidden" : "visible";
@@ -682,46 +714,76 @@ function renderCoach(c){
   if(!c){ el.style.display = "none"; el.innerHTML = ""; return; }
   const n = c.nutricion || {};
   const h = c.horarios || {};
-  const chips = [];
-  if(h.luz_solar) chips.push("☀️ Luz " + h.luz_solar);
-  if(h.primer_cafe) chips.push("☕ Café " + h.primer_cafe);
-  if(h.corte_cafeina) chips.push("⛔ Corte cafeína " + h.corte_cafeina);
-  if(h.dormir_objetivo) chips.push("😴 Dormir " + h.dormir_objetivo);
-  if(n.hidratacion) chips.push("💧 " + n.hidratacion.split(".")[0]);
+  const checks = c.checks || {};
+
+  // chips de horarios: tocar = marcar cumplido
+  const chipDefs = [];
+  if(h.luz_solar) chipDefs.push(["h:luz","☀️ Luz " + h.luz_solar]);
+  if(h.primer_cafe) chipDefs.push(["h:cafe","☕ Café " + h.primer_cafe]);
+  if(h.corte_cafeina) chipDefs.push(["h:corte","⛔ Corte cafeína " + h.corte_cafeina]);
+  if(h.dormir_objetivo) chipDefs.push(["h:dormir","😴 Dormir " + h.dormir_objetivo]);
+  if(n.hidratacion) chipDefs.push(["h:agua","💧 " + n.hidratacion.split(".")[0]]);
+  const chips = chipDefs.map(([k,label]) =>
+    `<span class="chk${checks[k] ? " done" : ""}" data-k="${k}" title="Tocar para marcar">${checks[k] ? "✓ " : ""}${esc(label)}</span>`
+  ).join("");
+
+  // progreso del workout (ejercicios marcados en el briefing)
+  let wkTxt = "";
+  if(c.workout){
+    wkTxt = (c.workout.nombre||"") + (c.workout.badge ? " · " + c.workout.badge : "");
+    const exs = c.workout.ejercicios;
+    if(exs && exs.length){
+      const done = exs.filter((_,i) => checks["ex:"+i]).length;
+      if(done > 0) wkTxt += ` · ${done}/${exs.length} ✓`;
+    }
+  }
+
   const meals = (n.comidas || []).map((m,i) => {
     const kcal = Math.round((m.p||0)*4 + (m.c||0)*4 + (m.g||0)*9);
-    return `<div class="cmeal">
+    const done = checks["m:"+i];
+    return `<div class="cmeal${done ? " done" : ""}">
       <div class="h">${esc(m.hora||"")}</div>
       <div class="b"><div class="n">${esc(m.nombre||"Comida")}</div><div class="d">${esc(m.detalle||"")}</div></div>
       <div class="m"><b>${kcal}</b><br>P${m.p||0} C${m.c||0} G${m.g||0}</div>
-      <button class="addbtn" data-i="${i}" title="Registrar esta comida">+</button>
+      <button class="addbtn" data-i="${i}" title="${done ? "Ya registrada" : "Registrar esta comida"}">${done ? "✓" : "+"}</button>
     </div>`;
   }).join("");
+
   el.className = "coach nivel-" + (c.nivel || "VERDE");
   el.style.display = "block";
   el.innerHTML = `
     <div class="head">
       <div class="lvl">🎯 Coach · ${esc(c.nivel||"")}${c.score != null ? " " + c.score : ""}</div>
-      ${c.workout ? `<div class="wk">${esc((c.workout.nombre||"") + (c.workout.badge ? " · " + c.workout.badge : ""))}</div>` : ""}
+      ${wkTxt ? `<div class="wk">${esc(wkTxt)}</div>` : ""}
     </div>
     ${c.frase ? `<div class="frase">${esc(c.frase)}</div>` : ""}
     ${c.alerta ? `<div class="calerta">⚠️ ${esc(c.alerta)}</div>` : ""}
     ${c.tenis && c.tenis.veredicto ? `<div class="frase">🎾 ${esc(c.tenis.veredicto)}</div>` : ""}
-    ${chips.length ? `<div class="chips">${chips.map(x => `<span>${esc(x)}</span>`).join("")}</div>` : ""}
+    ${chips ? `<div class="chips">${chips}</div>` : ""}
     ${meals ? `<details${coachOpen ? " open" : ""}><summary>Plan de comidas (${n.comidas.length}) — toca + para registrar</summary>${meals}</details>` : ""}
     ${(c.metricas || (c.workout && c.workout.ejercicios)) ? `<button class="morebtn" id="btnBriefing">📋 Ver briefing completo</button>` : ""}`;
+
   const bb = el.querySelector("#btnBriefing");
   if(bb) bb.onclick = () => showBriefing(c);
   const det = el.querySelector("details");
   if(det) det.addEventListener("toggle", () => { coachOpen = det.open; });
+  el.querySelectorAll(".chips .chk").forEach(s => s.onclick = () => {
+    const k = s.dataset.k;
+    mutate([{t:"check", date: viewDate, key: k, done: !checks[k]}]);
+  });
   el.querySelectorAll(".addbtn").forEach(b => b.onclick = () => {
-    const m = n.comidas[Number(b.dataset.i)];
-    mutate([{t:"add", pid, date: viewDate, entry: {
-      id: newId(), name: m.nombre || "Comida",
-      kcal: (m.p||0)*4 + (m.c||0)*4 + (m.g||0)*9,
-      prot: m.p||0, carb: m.c||0, fat: m.g||0,
-      time: m.hora || "", img: null
-    }}]);
+    const i = Number(b.dataset.i);
+    if(checks["m:"+i]) return; // ya registrada desde el plan
+    const m = n.comidas[i];
+    mutate([
+      {t:"add", pid, date: viewDate, entry: {
+        id: newId(), name: m.nombre || "Comida",
+        kcal: (m.p||0)*4 + (m.c||0)*4 + (m.g||0)*9,
+        prot: m.p||0, carb: m.c||0, fat: m.g||0,
+        time: m.hora || "", img: null
+      }},
+      {t:"check", date: viewDate, key: "m:"+i, done: true}
+    ]);
     toast("Agregado del plan ✓");
   });
 }
@@ -773,11 +835,14 @@ function showBriefing(c){
     parts.push(`<div class="bf-sec">Entrenamiento — ${esc(w.nombre||"")}${w.badge ? " · " + esc(w.badge) : ""}${w.total_series ? ` · ${w.total_series} series · ~${w.tiempo_min} min` : ""}</div>`);
     if(w.ajustes && w.ajustes.length) parts.push(`<ul class="bf-list">${w.ajustes.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>`);
     if(w.ejercicios && w.ejercicios.length){
-      parts.push(w.ejercicios.map(ex => {
+      const checks = c.checks || {};
+      parts.push(`<div class="bf-hint">Toca un ejercicio para marcarlo hecho ✓</div>`);
+      parts.push(w.ejercicios.map((ex,i) => {
+        const done = checks["ex:"+i];
         const fl = (ex.flecha||"→").charAt(0);
         const flCls = fl === "↑" ? "up" : fl === "↓" ? "down" : "";
-        return `<div class="bf-ex">
-          <div class="fl ${flCls}">${esc(ex.flecha||"→")}</div>
+        return `<div class="bf-ex${done ? " done" : ""}" data-i="${i}">
+          <div class="fl ${flCls}">${done ? "✓" : esc(ex.flecha||"→")}</div>
           <div class="exb"><div class="exn">${esc(ex.nombre)}</div><div class="exm">${esc(ex.musculo||"")}${ex.descanso ? " · descanso " + esc(ex.descanso) : ""}</div></div>
           <div class="exw"><b>${esc(ex.peso||"")}</b><div>${esc(ex.series||"")}</div></div>
         </div>`;
@@ -802,6 +867,14 @@ function showBriefing(c){
   }
 
   $("briefingBody").innerHTML = parts.join("");
+  // marcar/desmarcar ejercicios tocándolos (se sincroniza como op "check")
+  $("briefingBody").querySelectorAll(".bf-ex").forEach(row => row.onclick = () => {
+    const key = "ex:" + row.dataset.i;
+    const done = !((c.checks || {})[key]);
+    mutate([{t:"check", date: viewDate, key, done}]);
+    row.classList.toggle("done", done);
+    row.querySelector(".fl").textContent = done ? "✓" : "→";
+  });
   open("ovBriefing");
 }
 
@@ -1041,12 +1114,28 @@ function showResult(){
   };
 }
 
+/* ================= selector de perfil (primera vez en el dispositivo) ================= */
+function renderWho(){
+  const el = $("whoBtns");
+  el.innerHTML = Object.keys(state.profiles).map(k => {
+    const nm = state.profiles[k].name || "?";
+    return `<button class="whobtn" data-pid="${k}"><span class="av">${esc(nm.charAt(0).toUpperCase())}</span>${esc(nm)}</button>`;
+  }).join("");
+  el.querySelectorAll("button").forEach(b => b.onclick = () => {
+    pid = b.dataset.pid;
+    localStorage.setItem("nt_pid", pid);
+    close("ovWho");
+    render();
+  });
+}
+
 /* ================= arranque ================= */
 if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
   navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
 render();
 sync();
+if(!localStorage.getItem("nt_pid")){ open("ovWho"); renderWho(); }
 })();
 </script>
 </body>

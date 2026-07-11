@@ -95,6 +95,10 @@ function applyOp(op) {
     prof.name = op.name.trim().slice(0, 20);
   } else if (op.t === "key" && typeof op.key === "string" && op.key.trim()) {
     state.key = op.key.trim();
+  } else if (op.t === "check" && op.date && op.key && state.coach[op.date]) {
+    // marcas interactivas del briefing (ejercicio hecho, horario cumplido, comida del plan)
+    const ch = (state.coach[op.date].checks = state.coach[op.date].checks || {});
+    if (op.done) ch[op.key] = true; else delete ch[op.key];
   }
 }
 
@@ -167,7 +171,8 @@ function analyze(imageBase64, mediaType, cb) {
   const key = aiKey();
   if (!key) return cb({ status: 400, error: "Falta la API key de IA. Configúrala en ⚙️ Ajustes (sirve para todos los dispositivos)." });
   if (key.startsWith("sk-ant-")) return callAnthropic(key, imageBase64, mediaType, cb);
-  if (key.startsWith("AIza")) return callGemini(key, imageBase64, mediaType, cb);
+  // Google: formato clásico "AIza…" o el nuevo "AQ.…"
+  if (key.startsWith("AIza") || key.startsWith("AQ.")) return callGemini(key, imageBase64, mediaType, cb);
   return callOpenAI(key, imageBase64, mediaType, cb);
 }
 
@@ -213,7 +218,8 @@ function callAnthropic(key, imageBase64, mediaType, cb) {
   }, body, j => (j.content || []).filter(b => b.type === "text").map(b => b.text).join(""), cb);
 }
 
-function callGemini(key, imageBase64, mediaType, cb) {
+function callGemini(key, imageBase64, mediaType, cb, model) {
+  model = model || "gemini-flash-latest";
   const body = JSON.stringify({
     contents: [{
       parts: [
@@ -221,18 +227,24 @@ function callGemini(key, imageBase64, mediaType, cb) {
         { text: PROMPT }
       ]
     }],
-    generationConfig: { maxOutputTokens: 2000, thinkingConfig: { thinkingBudget: 0 } }
+    generationConfig: { maxOutputTokens: 4000 }
   });
   apiRequest({
     hostname: "generativelanguage.googleapis.com",
-    path: "/v1beta/models/gemini-2.5-flash:generateContent",
+    path: "/v1beta/models/" + model + ":generateContent",
     method: "POST",
     headers: {
       "content-type": "application/json", "content-length": Buffer.byteLength(body),
       "x-goog-api-key": key
     }
   }, body, j => ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
-    .map(p => p.text || "").join(""), cb);
+    .map(p => p.text || "").join(""), (err, ok) => {
+    // 503 = modelo congestionado (pasa en el plan gratis): probar con el lite
+    if (err && /503/.test(err.error || "") && model === "gemini-flash-latest") {
+      return callGemini(key, imageBase64, mediaType, cb, "gemini-flash-lite-latest");
+    }
+    cb(err, ok);
+  });
 }
 
 function callOpenAI(key, imageBase64, mediaType, cb) {
