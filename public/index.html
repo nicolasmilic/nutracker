@@ -1317,25 +1317,54 @@ async function sendChat(){
   chatBusy = false; renderChat();
 }
 
-/* dictado por voz (Web Speech API; funciona en Chrome/Edge/Safari, no en Firefox) */
+/* dictado por voz (Web Speech API; funciona en Chrome/Edge/Safari, no en Firefox).
+ * Modo no continuo + reinicio automático: el continuo falla/duplica texto en Android. */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null;
-function stopMic(){ if(rec){ try{ rec.stop(); }catch(e){} rec = null; } $("chatMic").classList.remove("rec"); }
+let rec = null, micOn = false, micBase = "";
+const MIC_ERR = {
+  "not-allowed": "Permite el micrófono en el navegador para dictar",
+  "service-not-allowed": "El navegador no permite dictar aquí (¿app instalada o sin HTTPS?)",
+  "audio-capture": "No se detecta ningún micrófono",
+  "network": "El dictado necesita internet",
+  "language-not-supported": "Idioma de dictado no soportado"
+};
+function stopMic(){
+  micOn = false;
+  if(rec){ try{ rec.stop(); }catch(e){} rec = null; }
+  $("chatMic").classList.remove("rec");
+}
+function startRec(){
+  const r = new SR();
+  rec = r;
+  r.lang = "es-CL"; r.interimResults = true; r.continuous = false;
+  r.onresult = ev => {
+    let fin = "", interim = "";
+    for(let i = 0; i < ev.results.length; i++){
+      const t = ev.results[i][0].transcript;
+      if(ev.results[i].isFinal) fin += t; else interim += t;
+    }
+    $("chatInput").value = (micBase + fin + interim).trimStart();
+    if(fin && !interim) micBase += fin.trim() + " ";
+    $("chatInput").dispatchEvent(new Event("input"));
+  };
+  r.onerror = ev => {
+    if(ev.error === "no-speech" || ev.error === "aborted") return; // onend decide si reiniciar
+    toast(MIC_ERR[ev.error] || ("Error de micrófono: " + ev.error));
+    stopMic();
+  };
+  r.onend = () => {
+    if(micOn && rec === r){ try{ startRec(); }catch(e){ stopMic(); } }
+    else if(rec === r){ stopMic(); }
+  };
+  r.start();
+}
 $("chatMic").onclick = () => {
   if(!SR){ toast("Tu navegador no soporta dictado por voz"); return; }
-  if(rec){ stopMic(); return; }
-  rec = new SR();
-  rec.lang = "es-CL"; rec.interimResults = true; rec.continuous = true;
-  const base = $("chatInput").value ? $("chatInput").value.trim() + " " : "";
-  rec.onresult = ev => {
-    let txt = "";
-    for(let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
-    $("chatInput").value = base + txt;
-  };
-  rec.onerror = ev => { if(ev.error === "not-allowed") toast("Permite el micrófono para dictar"); stopMic(); };
-  rec.onend = () => { $("chatMic").classList.remove("rec"); rec = null; };
-  rec.start();
+  if(micOn){ stopMic(); return; }
+  micOn = true;
+  micBase = $("chatInput").value ? $("chatInput").value.trim() + " " : "";
   $("chatMic").classList.add("rec");
+  try{ startRec(); }catch(e){ toast("No se pudo iniciar el micrófono"); stopMic(); }
 };
 $("chatSend").onclick = sendChat;
 $("chatInput").addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendChat(); } });
