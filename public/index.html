@@ -872,6 +872,22 @@ function round1(n){ return Math.round(n*10)/10; }
 /* ================= render ================= */
 const RING_C = 527.8; // 2π·84
 
+function dayStats(){
+  const es = getEntries(viewDate);
+  const tot = es.reduce((a,e) => ({k:a.k+e.kcal, p:a.p+e.prot, c:a.c+e.carb, f:a.f+e.fat}), {k:0,p:0,c:0,f:0});
+  const st = prof().settings;
+  // si hay briefing del coach para este día (perfil p1), sus metas mandan
+  const coach = pid === "p1" ? (state.coach || {})[viewDate] : null;
+  const cn = coach && coach.nutricion;
+  return {
+    es, tot, coach,
+    goal: (cn && cn.objetivo) || Number(st.goal) || 2000,
+    gp: (cn && cn.proteina_g) || st.gprot,
+    gc: (cn && cn.carbos_g) || st.gcarb,
+    gf: cn && cn.grasas_g
+  };
+}
+
 function render(){
   // pestañas de perfil (avatar con inicial)
   $("profileTabs").innerHTML = Object.keys(state.profiles).map(k => {
@@ -889,16 +905,7 @@ function render(){
 
   $("dateLabel").textContent = fmtDate(viewDate);
   $("nextDay").style.visibility = viewDate >= todayStr() ? "hidden" : "visible";
-  const es = getEntries(viewDate);
-  const tot = es.reduce((a,e) => ({k:a.k+e.kcal, p:a.p+e.prot, c:a.c+e.carb, f:a.f+e.fat}), {k:0,p:0,c:0,f:0});
-  const st = prof().settings;
-  // si hay briefing del coach para este día (perfil p1), sus metas mandan
-  const coach = pid === "p1" ? (state.coach || {})[viewDate] : null;
-  const cn = coach && coach.nutricion;
-  const goal = (cn && cn.objetivo) || Number(st.goal) || 2000;
-  const gp = (cn && cn.proteina_g) || st.gprot;
-  const gc = (cn && cn.carbos_g) || st.gcarb;
-  const gf = cn && cn.grasas_g;
+  const {es, tot, coach, goal, gp, gc, gf} = dayStats();
 
   // anillo de calorías
   $("sumKcal").textContent = Math.round(tot.k);
@@ -1438,7 +1445,10 @@ let chatBusy = false;
 function renderChat(){
   const log = $("chatLog");
   if(!chatMsgs.length){
-    log.innerHTML = '<div class="bub a">¡Hola! Cuéntame qué comiste, escribiendo o con el micrófono 🎤. Yo estimo las calorías y tú confirmas antes de guardar.</div>';
+    log.innerHTML = '<div class="bub a">¡Hola! Cuéntame qué comiste, escribiendo o con el micrófono 🎤. Yo estimo las calorías y tú confirmas antes de guardar. También puedes preguntarme qué comer según lo que te queda.</div>' +
+      '<button class="linkbtn" id="chatReco" style="align-self:flex-start;width:auto;padding:9px 14px;border-style:solid;color:var(--accent)">💡 ¿Qué me recomiendas comer?</button>';
+    const rb = $("chatReco");
+    if(rb) rb.onclick = () => { $("chatInput").value = "¿Qué me recomiendas comer según lo que me queda de hoy?"; sendChat(); };
   }else{
     log.innerHTML = chatMsgs.map((m, i) => {
       let h = `<div class="bub ${m.role === "user" ? "u" : "a"}">${esc(m.text)}</div>`;
@@ -1448,6 +1458,13 @@ function renderChat(){
           ${m.comidas.map(c => `<div class="prow"><div>${esc(c.nombre)}<small>${esc(c.porcion||"")} · P ${Math.round(c.prot||0)} C ${Math.round(c.carb||0)} G ${Math.round(c.grasa||0)}</small></div><b>${Math.round(c.kcal||0)} kcal</b></div>`).join("")}
           ${m.saved ? '<div class="hint" style="margin:6px 0 0">✓ Agregado al registro</div>'
                     : `<button class="btn btn-primary" data-save="${i}">Agregar (${Math.round(tot)} kcal) ✓</button>`}
+        </div>`;
+      }
+      if(m.sugerencias && m.sugerencias.length){
+        h += `<div class="proposal">
+          <div class="hint" style="margin:0 0 4px;font-weight:700">💡 Ideas para lo que te queda</div>
+          ${m.sugerencias.map((c, j) => `<div class="prow"><div>${esc(c.nombre)}<small>${esc(c.porcion||"")} · P ${Math.round(c.prot||0)} C ${Math.round(c.carb||0)} G ${Math.round(c.grasa||0)}</small></div>
+            <div style="text-align:right;white-space:nowrap"><b>${Math.round(c.kcal||0)} kcal</b><br><a href="#" data-eat="${i}:${j}" style="color:var(--accent);font-size:12px;font-weight:700;text-decoration:none">+ la comí</a></div></div>`).join("")}
         </div>`;
       }
       return h;
@@ -1463,7 +1480,27 @@ function renderChat(){
     }})));
     m.saved = true; renderChat(); toast("Agregado ✓");
   });
+  log.querySelectorAll("[data-eat]").forEach(a => a.onclick = ev => {
+    ev.preventDefault();
+    const [i, j] = a.dataset.eat.split(":").map(Number), c = chatMsgs[i].sugerencias[j];
+    mutate([{t:"add", pid, date: viewDate, entry: {
+      id: newId(), name: c.nombre, kcal: Number(c.kcal)||0, prot: Number(c.prot)||0, carb: Number(c.carb)||0, fat: Number(c.grasa)||0,
+      time: nowTime(), img: null
+    }}]);
+    a.textContent = "✓ agregada"; a.onclick = ev2 => ev2.preventDefault();
+    toast("Agregado ✓");
+  });
   log.scrollTop = log.scrollHeight;
+}
+
+function chatStats(){
+  const d = dayStats();
+  return {
+    name: prof().name, hora: nowTime(),
+    kcal: Math.round(d.tot.k), goal: d.goal,
+    prot: Math.round(d.tot.p), carb: Math.round(d.tot.c), fat: Math.round(d.tot.f),
+    gprot: d.gp || null, gcarb: d.gc || null, gfat: d.gf || null
+  };
 }
 
 async function sendChat(){
@@ -1485,7 +1522,8 @@ async function sendChat(){
           method:"POST", headers: pinHeaders(), signal: AbortSignal.timeout(70000),
           body: JSON.stringify({
             messages: chatMsgs.map(m => ({role: m.role === "user" ? "user" : "ai", text: m.text})),
-            today: getEntries(viewDate).map(e => ({name: e.name, kcal: e.kcal}))
+            today: getEntries(viewDate).map(e => ({name: e.name, kcal: e.kcal})),
+            stats: chatStats()
           })
         });
       }catch(e){ throw new Error(e && e.name === "TimeoutError" ? "La IA está tardando demasiado. Intenta de nuevo en un momento." : "Sin conexión con el servidor. Puedes agregar la comida en modo ✏️ Manual."); }
@@ -1497,7 +1535,8 @@ async function sendChat(){
       try{ data = JSON.parse(t.slice(a, z+1)); }catch(e){ data = {respuesta: t || "No te entendí, ¿me lo repites?", comidas: []}; }
     }
     const comidas = (Array.isArray(data.comidas) ? data.comidas : []).filter(c => c && Number(c.kcal) > 0);
-    chatMsgs.push({role:"ai", text: data.respuesta || (comidas.length ? "Esto entendí:" : "Ok."), comidas});
+    const sugerencias = (Array.isArray(data.sugerencias) ? data.sugerencias : []).filter(c => c && c.nombre);
+    chatMsgs.push({role:"ai", text: data.respuesta || (comidas.length ? "Esto entendí:" : "Ok."), comidas, sugerencias});
   }catch(err){
     chatMsgs.push({role:"ai", text: "⚠️ " + (err.message || err)});
   }

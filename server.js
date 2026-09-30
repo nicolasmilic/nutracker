@@ -283,13 +283,15 @@ Responde SOLO con JSON válido, sin markdown, con esta estructura:
   "respuesta": "mensaje breve y amable en español (1-2 frases)",
   "comidas": [
     {"nombre": "alimento o plato", "porcion": "cantidad estimada", "kcal": 0, "prot": 0, "carb": 0, "grasa": 0}
-  ]
+  ],
+  "sugerencias": []
 }
 
 Reglas:
 - "comidas" incluye SOLO lo nuevo mencionado en el ÚLTIMO mensaje del usuario (no repitas lo ya registrado hoy ni lo ya propuesto antes). Un elemento por comida/plato.
 - Si el usuario corrige algo ("eran 2, no 3"), devuelve la versión corregida en "comidas".
 - Si solo pregunta o conversa, deja "comidas" vacío y contesta en "respuesta".
+- Si pide recomendaciones de qué comer, usa el bloque "Metas y consumo de hoy": propón 2 o 3 ideas concretas y realistas (comida chilena cotidiana, acorde a la hora del día) que calcen con las calorías restantes y prioricen el macro que más falta (sobre todo proteína). Ponlas en "sugerencias" (mismo formato que "comidas", con porción y macros) — NO en "comidas", porque aún no las ha comido — y explica en "respuesta" en 1-2 frases por qué. Si ya superó su meta, dilo con tacto y sugiere algo liviano.
 - Si no da cantidades usa porciones típicas chilenas y dilo en la respuesta. Macros en gramos.`;
 
 function chat(body, cb) {
@@ -298,7 +300,18 @@ function chat(body, cb) {
   const transcript = msgs.map(m => (m.role === "user" ? "Usuario: " : "Asistente: ") + String(m.text || "").slice(0, 800)).join("\n");
   const today = Array.isArray(body.today)
     ? body.today.slice(0, 40).map(e => "- " + String(e.name || "").slice(0, 60) + " (" + Math.round(Number(e.kcal) || 0) + " kcal)").join("\n") : "";
-  const prompt = CHAT_PROMPT + "\n\nYa registrado hoy:\n" + (today || "(nada todavía)") + "\n\nConversación:\n" + transcript + "\nAsistente:";
+  const st = body.stats && typeof body.stats === "object" ? body.stats : null;
+  const n = v => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : null);
+  let goals = "";
+  if (st && n(st.goal)) {
+    const left = n(st.goal) - (n(st.kcal) || 0);
+    goals = "\n\nMetas y consumo de hoy (" + String(st.name || "usuario").slice(0, 20) + ", son las " + String(st.hora || "").slice(0, 8) + "):\n" +
+      "- Calorías: " + (n(st.kcal) || 0) + " de " + n(st.goal) + " (" + (left >= 0 ? "quedan " + left : "se pasó por " + (-left)) + ")\n" +
+      "- Proteína: " + (n(st.prot) || 0) + " g" + (n(st.gprot) ? " de " + n(st.gprot) + " g" : "") + "\n" +
+      "- Carbos: " + (n(st.carb) || 0) + " g" + (n(st.gcarb) ? " de " + n(st.gcarb) + " g" : "") + "\n" +
+      "- Grasas: " + (n(st.fat) || 0) + " g" + (n(st.gfat) ? " de " + n(st.gfat) + " g" : "");
+  }
+  const prompt = CHAT_PROMPT + goals + "\n\nYa registrado hoy:\n" + (today || "(nada todavía)") + "\n\nConversación:\n" + transcript + "\nAsistente:";
   askAI({ prompt, maxTokens: 1500, fast: true }, cb);
 }
 
