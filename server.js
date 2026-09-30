@@ -179,7 +179,7 @@ function askAI(req, cb) {
   return callOpenAI(key, req, cb);
 }
 
-function apiRequest(opts, body, extractText, cb) {
+function apiRequest(opts, body, extractText, cb, timeoutMs) {
   const req = https.request(opts, resp => {
     let data = "";
     resp.on("data", c => data += c);
@@ -195,7 +195,7 @@ function apiRequest(opts, body, extractText, cb) {
     });
   });
   req.on("error", e => cb({ status: 502, error: "No se pudo contactar a la API: " + e.message }));
-  req.setTimeout(60000, () => { req.destroy(); cb({ status: 504, error: "La IA tardó demasiado. Intenta de nuevo." }); });
+  req.setTimeout(timeoutMs || 60000, () => { req.destroy(); cb({ status: 504, error: "La IA tardó demasiado. Intenta de nuevo." }); });
   req.write(body);
   req.end();
 }
@@ -214,13 +214,18 @@ function callAnthropic(key, r, cb) {
   }, body, j => (j.content || []).filter(b => b.type === "text").map(b => b.text).join(""), cb);
 }
 
-function callGemini(key, r, cb, model) {
-  // texto/audio sin foto: el modelo lite responde en segundos (el flash "piensa" y puede tardar >1 min)
-  model = model || (r.fast ? "gemini-flash-lite-latest" : "gemini-flash-latest");
+function callGemini(key, r, cb, model, noThink) {
+  // texto/audio sin foto ("fast"): modelo lite sin "thinking" y con timeout corto; si se
+  // cuelga o está congestionado, prueba con el otro modelo (el plan gratis se satura a ratos)
+  const LITE = "gemini-flash-lite-latest", FLASH = "gemini-flash-latest";
+  model = model || (r.fast ? LITE : FLASH);
   const parts = [];
   if (r.image) parts.push({ inline_data: { mime_type: r.mediaType || "image/jpeg", data: r.image } });
   parts.push({ text: r.prompt });
-  const body = JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: 4000 } });
+  const gc = { maxOutputTokens: 4000 };
+  if (r.fast && !noThink) gc.thinkingConfig = { thinkingBudget: 0 };
+  const body = JSON.stringify({ contents: [{ parts }], generationConfig: gc });
+  r._tried = (r._tried || []).concat(model);
   apiRequest({
     hostname: "generativelanguage.googleapis.com",
     path: "/v1beta/models/" + model + ":generateContent",
@@ -231,15 +236,17 @@ function callGemini(key, r, cb, model) {
     }
   }, body, j => ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
     .map(p => p.text || "").join(""), (err, ok) => {
-    // 503 = modelo congestionado (pasa en el plan gratis): probar con el lite
-    if (err && /503/.test(err.error || "") && model === "gemini-flash-latest") {
-      return callGemini(key, r, cb, "gemini-flash-lite-latest");
-    }
-    if (err && /503/.test(err.error || "") && r.fast && model === "gemini-flash-lite-latest") {
-      return callGemini(key, r, cb, "gemini-flash-latest");
+    if (err) {
+      // el modelo no acepta thinkingConfig: reintentar igual sin él
+      if (gc.thinkingConfig && /thinking/i.test(err.error || "")) return callGemini(key, r, cb, model, true);
+      // congestionado / lento / cuota: probar el otro modelo una vez
+      const other = model === LITE ? FLASH : LITE;
+      if ((err.status === 504 || /50[03]|429/.test(err.error || "")) && !r._tried.includes(other)) {
+        return callGemini(key, r, cb, other);
+      }
     }
     cb(err, ok);
-  });
+  }, r.fast ? 25000 : 60000);
 }
 
 function callOpenAI(key, r, cb) {
