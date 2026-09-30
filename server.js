@@ -171,6 +171,8 @@ Reglas: estima porciones por el tamaño visual del plato y objetos de referencia
 function askAI(req, cb) {
   const key = aiKey();
   if (!key) return cb({ status: 400, error: "Falta la API key de IA. Configúrala en ⚙️ Ajustes (sirve para todos los dispositivos)." });
+  const isGoogle = key.startsWith("AIza") || key.startsWith("AQ.");
+  if (req.audio && !isGoogle) return cb({ status: 400, error: "La transcripción de voz necesita una API key de Google Gemini (gratis)." });
   if (key.startsWith("sk-ant-")) return callAnthropic(key, req, cb);
   // Google: formato clásico "AIza…" o el nuevo "AQ.…"
   if (key.startsWith("AIza") || key.startsWith("AQ.")) return callGemini(key, req, cb);
@@ -342,6 +344,16 @@ const server = http.createServer((req, res) => {
         analyze(body, (err, ok) => {
           if (err) return sendJSON(res, err.status, { error: err.error });
           sendJSON(res, 200, ok);
+        });
+      });
+    }
+    if (p === "/api/transcribe" && req.method === "POST") {
+      return readBody(req, res, 8 * 1024 * 1024, body => {
+        if (!body.audio) return sendJSON(res, 400, { error: "Falta el audio." });
+        const prompt = "Transcribe este audio en español, tal cual se dice, sin comentarios ni comillas. Si no se entiende nada, responde con texto vacío.";
+        askAI({ prompt, image: body.audio, mediaType: String(body.mediaType || "audio/webm").split(";")[0], audio: true, maxTokens: 800 }, (err, ok) => {
+          if (err) return sendJSON(res, err.status, { error: err.error });
+          sendJSON(res, 200, { text: (ok.text || "").trim() });
         });
       });
     }

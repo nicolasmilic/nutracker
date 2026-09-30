@@ -1349,6 +1349,7 @@ function startRec(){
   };
   r.onerror = ev => {
     if(ev.error === "no-speech" || ev.error === "aborted") return; // onend decide si reiniciar
+    if(ev.error === "network" || ev.error === "service-not-allowed"){ stopMic(); startRecorder(); return; }
     toast(MIC_ERR[ev.error] || ("Error de micrófono: " + ev.error));
     stopMic();
   };
@@ -1358,8 +1359,42 @@ function startRec(){
   };
   r.start();
 }
+/* plan B: grabar audio y transcribirlo en el servidor (Gemini) */
+let mr = null, mrChunks = [];
+async function startRecorder(){
+  if(!navigator.mediaDevices || !window.MediaRecorder){ toast("Tu navegador no soporta dictado ni grabación"); return; }
+  let stream;
+  try{ stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch(e){ toast("Permite el micrófono en el navegador para dictar"); return; }
+  const mime = ["audio/webm;codecs=opus","audio/webm","audio/mp4","audio/ogg"].find(t => MediaRecorder.isTypeSupported(t)) || "";
+  mrChunks = [];
+  mr = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined);
+  mr.ondataavailable = e => { if(e.data.size) mrChunks.push(e.data); };
+  mr.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    $("chatMic").classList.remove("rec");
+    const blob = new Blob(mrChunks, {type: mr.mimeType || "audio/webm"});
+    mr = null;
+    if(blob.size < 1500){ toast("No se escuchó nada"); return; }
+    toast("Transcribiendo…");
+    try{
+      const b64 = await new Promise((ok, no) => { const f = new FileReader(); f.onload = () => ok(String(f.result).split(",")[1]); f.onerror = no; f.readAsDataURL(blob); });
+      const resp = await fetch("/api/transcribe", {method:"POST", headers: pinHeaders(), body: JSON.stringify({audio: b64, mediaType: blob.type})});
+      const j = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error(j.error || ("Error " + resp.status));
+      if(!j.text){ toast("No se entendió, prueba de nuevo"); return; }
+      const inp = $("chatInput");
+      inp.value = (inp.value.trim() + " " + j.text).trim();
+      inp.dispatchEvent(new Event("input"));
+    }catch(err){ toast(String(err.message || err).slice(0, 90)); }
+  };
+  mr.start();
+  $("chatMic").classList.add("rec");
+  toast("Grabando… toca 🎤 para terminar");
+}
 $("chatMic").onclick = () => {
-  if(!SR){ toast("Tu navegador no soporta dictado por voz"); return; }
+  if(mr){ mr.stop(); return; }
+  if(!SR){ startRecorder(); return; }
   if(micOn){ stopMic(); return; }
   micOn = true;
   micBase = $("chatInput").value ? $("chatInput").value.trim() + " " : "";
