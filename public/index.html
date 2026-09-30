@@ -58,6 +58,7 @@
   .profiles button.sel{background:var(--card2); color:var(--text); box-shadow:0 2px 10px rgba(0,0,0,.35);}
   .profiles button.sel:nth-child(1) .av{background:var(--accent2); color:#03150a;}
   .profiles button.sel:nth-child(2) .av{background:var(--prot); color:#081326;}
+  .profiles button.sel:nth-child(3) .av{background:var(--fat); color:#2a0716;}
 
   /* ===== fecha ===== */
   .datebar{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:16px;}
@@ -315,6 +316,39 @@
   }
   .whobtn:nth-of-type(1) .av{background:var(--accent2); color:#03150a;}
   .whobtn:nth-of-type(2) .av{background:var(--prot); color:#081326;}
+  .whobtn:nth-of-type(3) .av{background:var(--fat); color:#2a0716;}
+
+  /* ===== edición de ítems ===== */
+  .eitem{background:var(--input); border:1px solid var(--border); border-radius:14px; padding:10px; margin-bottom:9px;}
+  .eitem .top{display:flex; gap:6px; align-items:center;}
+  .eitem input{padding:9px 10px !important; font-size:14px !important; border-radius:10px !important;}
+  .eitem .macs{display:flex; gap:6px; margin-top:6px;}
+  .eitem .macs div{flex:1; min-width:0;}
+  .eitem .macs span{display:block; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; margin-bottom:3px; font-weight:700;}
+  .eitem .rm{background:none; border:none; color:#5a6377; font-size:18px; cursor:pointer; padding:4px 6px;}
+  .linkbtn{background:none; border:1px dashed var(--border); color:var(--muted); border-radius:11px; padding:9px 0; width:100%; font-size:13px; font-weight:700; cursor:pointer; margin-bottom:6px;}
+  .fixbox{display:flex; gap:8px; margin-top:10px;}
+  .fixbox input{flex:1;}
+  .fixbox button{background:var(--accent-dim); border:1px solid var(--accent2); color:var(--accent); border-radius:12px; padding:0 14px; font-weight:800; font-size:13px; cursor:pointer;}
+  .entry{cursor:pointer;}
+
+  /* ===== chat ===== */
+  .chatsheet{display:flex; flex-direction:column; height:88vh;}
+  .chatlog{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:9px; padding:4px 0 10px;}
+  .bub{max-width:88%; padding:10px 13px; border-radius:16px; font-size:14px; line-height:1.5; word-break:break-word;}
+  .bub.u{align-self:flex-end; background:var(--accent-dim); border:1px solid var(--accent2); border-bottom-right-radius:5px;}
+  .bub.a{align-self:flex-start; background:var(--card2); border:1px solid var(--border); border-bottom-left-radius:5px;}
+  .proposal{align-self:flex-start; width:92%; background:var(--input); border:1px solid var(--border); border-radius:14px; padding:10px 12px;}
+  .proposal .prow{display:flex; justify-content:space-between; font-size:13px; padding:5px 0; gap:8px;}
+  .proposal .prow small{color:var(--muted); display:block; font-size:11px;}
+  .proposal .btn{margin-top:8px; padding:10px; font-size:14px; border-radius:12px;}
+  .proposal.saved{opacity:.55;}
+  .chatbar{display:flex; gap:8px; align-items:flex-end; padding-top:8px; border-top:1px solid var(--border);}
+  .chatbar textarea{flex:1; resize:none; max-height:110px; font-family:inherit;}
+  .chatbar .iconbtn{flex-shrink:0; width:46px; height:46px;}
+  .chatbar .iconbtn.rec{background:#2a1518; border-color:var(--danger); animation:pulse 1s infinite;}
+  @keyframes pulse{50%{opacity:.55}}
+  .typing{color:var(--muted); font-size:13px; align-self:flex-start; padding:4px 8px;}
 </style>
 </head>
 <body>
@@ -380,6 +414,7 @@
   <button class="btn btn-primary" id="btnPhoto">📸 Foto a mi plato</button>
   <button class="btn btn-ghost" id="btnManual">✏️ Manual</button>
 </div>
+<button class="btn btn-ghost" id="btnChat" style="width:100%;margin:-8px 0 20px">💬 Contarle a la IA lo que comí</button>
 <input type="file" id="fileInput" accept="image/*" hidden>
 
 <div class="section-title">Comidas del día</div>
@@ -395,11 +430,25 @@
   </div>
 </div>
 
+<!-- ===== Modal: chat con la IA ===== -->
+<div class="overlay" id="ovChat">
+  <div class="sheet chatsheet">
+    <button class="closex" data-close="ovChat">✕</button>
+    <h2>💬 Cuéntale a la IA</h2>
+    <div class="chatlog" id="chatLog"></div>
+    <div class="chatbar">
+      <button class="iconbtn" id="chatMic" title="Hablar">🎤</button>
+      <textarea id="chatInput" rows="1" placeholder="Ej: al desayuno me comí 2 huevos y un pan…"></textarea>
+      <button class="iconbtn" id="chatSend" title="Enviar">➤</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== Modal: manual ===== -->
 <div class="overlay" id="ovManual">
   <div class="sheet">
     <button class="closex" data-close="ovManual">✕</button>
-    <h2>Agregar manual</h2>
+    <h2 id="manualTitle">Agregar manual</h2>
     <label>Nombre</label>
     <input id="mName" placeholder="Ej: Yogurt con granola">
     <div class="row2">
@@ -411,6 +460,7 @@
       <div><label>Grasas (g)</label><input id="mFat" type="number" inputmode="numeric" placeholder="0"></div>
     </div>
     <button class="btn btn-primary" id="mAdd">Agregar</button>
+    <button class="btn btn-ghost" id="mDel" style="display:none;width:100%;margin-top:10px;color:var(--danger)">🗑 Eliminar</button>
   </div>
 </div>
 
@@ -429,10 +479,7 @@
 
     <hr class="divider">
     <label>Nombres de los perfiles</label>
-    <div class="row2">
-      <div><input id="sName1" maxlength="20" placeholder="Yo"></div>
-      <div><input id="sName2" maxlength="20" placeholder="Hermano"></div>
-    </div>
+<div id="sNames"></div>
 
     <hr class="divider">
     <label>API key de IA (compartida)</label>
@@ -488,16 +535,18 @@
  */
 const MOCK = location.hash.includes("mock");
 function freshProfile(name){ return {name, log:{}, settings:{goal:2000, gprot:null, gcarb:null}}; }
-let state = { profiles: { p1: freshProfile("Yo"), p2: freshProfile("Hermano") }, coach: {}, hasKey: false };
+let state = { profiles: { p1: freshProfile("Nico"), p2: freshProfile("Chris"), p3: freshProfile("Mamá") }, coach: {}, hasKey: false };
 let queue = [];
 try{ const c = JSON.parse(localStorage.getItem("nt_cache2")); if(c && c.profiles) state = c; }catch(e){}
 try{ const q = JSON.parse(localStorage.getItem("nt_queue2")); if(Array.isArray(q)) queue = q; }catch(e){}
 
+if(!state.profiles.p3) state.profiles.p3 = freshProfile("Mamá");
 let pid = localStorage.getItem("nt_pid") || "p1";
 if(!state.profiles[pid]) pid = "p1";
 let viewDate = todayStr();
 let pending = null;    // resultado de análisis aún no agregado
 let pendingImg = null; // dataURL miniatura
+let pendingBig = null; // {base64, mediaType} para volver a analizar con una corrección
 let mult = 1;
 
 function prof(){ return state.profiles[pid]; }
@@ -610,6 +659,7 @@ function todayStr(d){
 function newId(){
   return (crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2));
 }
+function entryId(v){ return isNaN(Number(v)) ? v : Number(v); }
 function getEntries(date){ return prof().log[date] || []; }
 
 const $ = id => document.getElementById(id);
@@ -693,7 +743,7 @@ function render(){
     return;
   }
   wrap.innerHTML = es.slice().reverse().map(e => `
-    <div class="entry">
+    <div class="entry" data-id="${esc(e.id)}">
       ${e.img ? `<img src="${e.img}" alt="">` : `<div class="noimg">🍽️</div>`}
       <div class="info">
         <div class="name">${esc(e.name)}</div>
@@ -702,9 +752,11 @@ function render(){
       <div class="kcal">${Math.round(e.kcal)} kcal</div>
       <button class="del" data-id="${esc(e.id)}" title="Eliminar">🗑</button>
     </div>`).join("");
-  wrap.querySelectorAll(".del").forEach(b => b.onclick = () => {
-    mutate([{t:"del", pid, date: viewDate, id: isNaN(Number(b.dataset.id)) ? b.dataset.id : Number(b.dataset.id)}]);
+  wrap.querySelectorAll(".del").forEach(b => b.onclick = ev => {
+    ev.stopPropagation();
+    mutate([{t:"del", pid, date: viewDate, id: entryId(b.dataset.id)}]);
   });
+  wrap.querySelectorAll(".entry").forEach(row => row.onclick = () => editEntry(entryId(row.dataset.id)));
 }
 
 /* ================= tarjeta coach ================= */
@@ -896,8 +948,8 @@ $("btnSettings").onclick = () => {
   $("sGoal").value = st.goal || "";
   $("sGProt").value = st.gprot || "";
   $("sGCarb").value = st.gcarb || "";
-  $("sName1").value = state.profiles.p1.name;
-  $("sName2").value = state.profiles.p2.name;
+  $("sNames").innerHTML = Object.keys(state.profiles).map(k =>
+    `<input data-pid="${k}" maxlength="20" style="margin-bottom:8px" value="${esc(state.profiles[k].name).replace(/"/g,"&quot;")}">`).join("");
   open("ovSettings");
 };
 $("sSave").onclick = () => {
@@ -906,9 +958,10 @@ $("sSave").onclick = () => {
     gprot: Number($("sGProt").value) || null,
     gcarb: Number($("sGCarb").value) || null
   }}];
-  const n1 = $("sName1").value.trim(), n2 = $("sName2").value.trim();
-  if(n1 && n1 !== state.profiles.p1.name) ops.push({t:"rename", pid:"p1", name:n1.slice(0,20)});
-  if(n2 && n2 !== state.profiles.p2.name) ops.push({t:"rename", pid:"p2", name:n2.slice(0,20)});
+  document.querySelectorAll("#sNames input").forEach(inp => {
+    const n = inp.value.trim();
+    if(n && n !== state.profiles[inp.dataset.pid].name) ops.push({t:"rename", pid: inp.dataset.pid, name: n.slice(0,20)});
+  });
   const k = $("sKey").value.trim();
   if(k) ops.push({t:"key", key:k});
   mutate(ops);
@@ -959,17 +1012,42 @@ $("importFile").addEventListener("change", e => {
 });
 
 /* ================= manual ================= */
-$("btnManual").onclick = () => { ["mName","mKcal","mProt","mCarb","mFat"].forEach(i => $(i).value=""); open("ovManual"); };
+let editing = null; // entrada existente que se está corrigiendo
+function nowTime(){ return new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}); }
+$("btnManual").onclick = () => {
+  editing = null;
+  ["mName","mKcal","mProt","mCarb","mFat"].forEach(i => $(i).value="");
+  $("manualTitle").textContent = "Agregar manual"; $("mAdd").textContent = "Agregar"; $("mDel").style.display = "none";
+  open("ovManual");
+};
+function editEntry(id){
+  const e = getEntries(viewDate).find(x => x.id === id);
+  if(!e) return;
+  editing = e;
+  $("mName").value = e.name; $("mKcal").value = Math.round(e.kcal);
+  $("mProt").value = Math.round(e.prot); $("mCarb").value = Math.round(e.carb); $("mFat").value = Math.round(e.fat);
+  $("manualTitle").textContent = "Editar comida"; $("mAdd").textContent = "Guardar cambios"; $("mDel").style.display = "";
+  open("ovManual");
+}
+$("mDel").onclick = () => {
+  if(editing) mutate([{t:"del", pid, date: viewDate, id: editing.id}]);
+  editing = null; close("ovManual");
+};
 $("mAdd").onclick = () => {
   const name = $("mName").value.trim() || "Comida";
   const kcal = Number($("mKcal").value) || 0;
   if(!kcal){ toast("Ingresa las calorías"); return; }
-  mutate([{t:"add", pid, date: viewDate, entry: {
-    id: newId(), name, kcal,
+  const entry = {
+    id: editing ? editing.id : newId(), name, kcal,
     prot: Number($("mProt").value)||0, carb: Number($("mCarb").value)||0, fat: Number($("mFat").value)||0,
-    time: new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}), img: null
-  }}]);
-  close("ovManual"); toast("Agregado ✓");
+    time: editing ? editing.time : nowTime(), img: editing ? (editing.img || null) : null
+  };
+  const ops = [];
+  if(editing) ops.push({t:"del", pid, date: viewDate, id: editing.id});
+  ops.push({t:"add", pid, date: viewDate, entry});
+  mutate(ops);
+  toast(editing ? "Cambios guardados ✓" : "Agregado ✓");
+  editing = null; close("ovManual");
 };
 
 /* ================= foto + análisis ================= */
@@ -987,13 +1065,13 @@ $("fileInput").addEventListener("change", async e => {
   const file = e.target.files && e.target.files[0];
   if(!file) return;
   const {big, thumb} = await resizeImage(file);
-  pendingImg = thumb;
+  pendingImg = thumb; pendingBig = big;
   $("previewImg").src = big.dataUrl;
   showAnalyzing();
   open("ovAnalyze");
   try{
     const result = MOCK ? await mockAnalyze() : await analyzeOnServer(big.base64, big.mediaType);
-    pending = result; mult = 1;
+    setPending(result);
     showResult();
   }catch(err){
     showError(err);
@@ -1024,13 +1102,13 @@ function resizeImage(file){
   });
 }
 
-async function analyzeOnServer(base64, mediaType){
+async function analyzeOnServer(base64, mediaType, hint, previous){
   let resp;
   try{
     resp = await fetch("/api/analyze", {
       method: "POST",
       headers: pinHeaders(),
-      body: JSON.stringify({image: base64, mediaType})
+      body: JSON.stringify({image: base64, mediaType, hint, previous})
     });
   }catch(e){
     throw new Error("Sin conexión con el servidor. El análisis con IA necesita conexión; puedes agregar la comida en modo ✏️ Manual.");
@@ -1074,45 +1152,195 @@ function showError(err){
   $("analyzeBody").innerHTML = '<div class="err">⚠️ ' + esc(err.message||err) + '</div>' +
     '<button class="btn btn-ghost" style="width:100%;margin-top:14px" onclick="document.getElementById(\'fileInput\').click()">Reintentar con otra foto</button>';
 }
+function setPending(r){
+  pending = r; mult = 1;
+  // los totales se recalculan siempre a partir de los ítems editables
+  if(!r.items.length) r.items = [{nombre: r.plato || "Plato", porcion: "", kcal: r.total.kcal, prot: r.total.prot, carb: r.total.carb, grasa: r.total.grasa}];
+}
+function pendingTotals(){
+  const t = {kcal:0, prot:0, carb:0, grasa:0};
+  pending.items.forEach(it => { t.kcal += Number(it.kcal)||0; t.prot += Number(it.prot)||0; t.carb += Number(it.carb)||0; t.grasa += Number(it.grasa)||0; });
+  return t;
+}
+function totalsHtml(){
+  const t = pendingTotals();
+  return `<div class="totline"><span>Total</span><span style="color:var(--accent)">${Math.round(t.kcal*mult)} kcal</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:4px">
+      <span>Proteína ${round1(t.prot*mult)}g</span><span>Carbos ${round1(t.carb*mult)}g</span><span>Grasas ${round1(t.grasa*mult)}g</span>
+    </div>`;
+}
+function attr(v){ return esc(v).replace(/"/g, "&quot;"); }
 function showResult(){
   const r = pending;
-  const items = r.items.map(it => `
-    <div class="item-row">
-      <div>
-        <div>${esc(it.nombre)} <span style="color:var(--muted)">· ${esc(it.porcion||"")}</span></div>
-        <div class="imacros">P ${round1((it.prot||0)*mult)}g · C ${round1((it.carb||0)*mult)}g · G ${round1((it.grasa||0)*mult)}g</div>
+  const num = (i, k, v) => `<input type="number" inputmode="decimal" data-i="${i}" data-k="${k}" value="${round1(Number(v)||0)}">`;
+  const items = r.items.map((it, i) => `
+    <div class="eitem">
+      <div class="top">
+        <input data-i="${i}" data-k="nombre" value="${attr(it.nombre)}" placeholder="Alimento" style="flex:2">
+        <input data-i="${i}" data-k="porcion" value="${attr(it.porcion||"")}" placeholder="Porción" style="flex:1">
+        <button class="rm" data-rm="${i}" title="Quitar">✕</button>
       </div>
-      <div style="font-weight:700">${Math.round((it.kcal||0)*mult)} kcal</div>
+      <div class="macs">
+        <div><span>kcal</span>${num(i,"kcal",it.kcal)}</div>
+        <div><span>Prot</span>${num(i,"prot",it.prot)}</div>
+        <div><span>Carb</span>${num(i,"carb",it.carb)}</div>
+        <div><span>Grasa</span>${num(i,"grasa",it.grasa)}</div>
+      </div>
     </div>`).join("");
-  const t = r.total;
   $("analyzeBody").innerHTML = `
-    <div style="font-weight:800;font-size:17px;margin-bottom:8px">${esc(r.plato||"Plato")}</div>
+    <input id="platoName" value="${attr(r.plato||"Plato")}" style="font-weight:800;font-size:17px;margin-bottom:10px">
+    <div class="hint" style="margin:0 0 10px">¿No entendió bien? Corrige los valores, quita o agrega ítems, o dile a la IA qué cambiar.</div>
     ${items}
+    <button class="linkbtn" id="addItem">＋ Agregar ítem</button>
+    <div class="fixbox">
+      <input id="fixText" placeholder="Ej: eran 2 huevos, no 3">
+      <button id="fixBtn">Corregir con IA</button>
+    </div>
     <div style="font-size:13px;color:var(--muted);margin-top:14px">¿Comiste todo el plato? Ajusta la porción:</div>
     <div class="mult" id="multBtns">
       ${[0.5,0.75,1,1.5,2].map(m => `<button data-m="${m}" class="${m===mult?"sel":""}">${m===1?"Todo":"×"+m}</button>`).join("")}
     </div>
-    <div class="totline">
-      <span>Total</span>
-      <span style="color:var(--accent)">${Math.round(t.kcal*mult)} kcal</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-top:4px">
-      <span>Proteína ${round1(t.prot*mult)}g</span><span>Carbos ${round1(t.carb*mult)}g</span><span>Grasas ${round1(t.grasa*mult)}g</span>
-    </div>
+    <div id="totBox">${totalsHtml()}</div>
     <div class="conf">Confianza: ${esc(r.confianza||"—")}. ${esc(r.nota||"")}</div>
     <button class="btn btn-primary" id="btnAddEntry">Agregar al registro ✓</button>`;
-  document.querySelectorAll("#multBtns button").forEach(b => b.onclick = () => { mult = Number(b.dataset.m); showResult(); });
+
+  $("analyzeBody").querySelectorAll(".eitem input").forEach(inp => inp.oninput = () => {
+    const it = pending.items[Number(inp.dataset.i)], k = inp.dataset.k;
+    it[k] = (k === "nombre" || k === "porcion") ? inp.value : (Number(inp.value) || 0);
+    $("totBox").innerHTML = totalsHtml();
+  });
+  $("platoName").oninput = () => { pending.plato = $("platoName").value; };
+  $("analyzeBody").querySelectorAll("[data-rm]").forEach(b => b.onclick = () => {
+    pending.items.splice(Number(b.dataset.rm), 1); showResult();
+  });
+  $("addItem").onclick = () => { pending.items.push({nombre:"", porcion:"", kcal:0, prot:0, carb:0, grasa:0}); showResult(); };
+  document.querySelectorAll("#multBtns button").forEach(b => b.onclick = () => {
+    mult = Number(b.dataset.m);
+    document.querySelectorAll("#multBtns button").forEach(x => x.classList.toggle("sel", x === b));
+    $("totBox").innerHTML = totalsHtml();
+  });
+  const fix = async () => {
+    const hint = $("fixText").value.trim();
+    if(!hint){ $("fixText").focus(); return; }
+    const prev = {plato: pending.plato, items: pending.items};
+    showAnalyzing();
+    try{
+      const res = MOCK ? await mockAnalyze() : await analyzeOnServer(pendingBig.base64, pendingBig.mediaType, hint, prev);
+      setPending(res); showResult();
+    }catch(err){ showResult(); toast("No se pudo corregir: " + String(err.message||err).slice(0,80)); }
+  };
+  $("fixBtn").onclick = fix;
+  $("fixText").addEventListener("keydown", e => { if(e.key === "Enter") fix(); });
   $("btnAddEntry").onclick = () => {
-    const t = pending.total;
+    const t = pendingTotals();
+    if(!(t.kcal > 0)){ toast("Las calorías no pueden ser 0"); return; }
     mutate([{t:"add", pid, date: viewDate, entry: {
-      id: newId(), name: pending.plato || "Plato",
-      kcal: t.kcal*mult, prot: (t.prot||0)*mult, carb: (t.carb||0)*mult, fat: (t.grasa||0)*mult,
-      time: new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}), img: pendingImg
+      id: newId(), name: (pending.plato || "").trim() || "Plato",
+      kcal: t.kcal*mult, prot: t.prot*mult, carb: t.carb*mult, fat: t.grasa*mult,
+      time: nowTime(), img: pendingImg
     }}]);
-    pending = null; pendingImg = null;
+    pending = null; pendingImg = null; pendingBig = null;
     close("ovAnalyze"); toast("Agregado ✓");
   };
 }
+
+/* ================= chat con la IA (texto o voz) ================= */
+let chatMsgs = [];   // [{role:"user"|"ai", text, comidas?, saved?}]
+let chatBusy = false;
+
+function renderChat(){
+  const log = $("chatLog");
+  if(!chatMsgs.length){
+    log.innerHTML = '<div class="bub a">¡Hola! Cuéntame qué comiste, escribiendo o con el micrófono 🎤. Yo estimo las calorías y tú confirmas antes de guardar.</div>';
+  }else{
+    log.innerHTML = chatMsgs.map((m, i) => {
+      let h = `<div class="bub ${m.role === "user" ? "u" : "a"}">${esc(m.text)}</div>`;
+      if(m.comidas && m.comidas.length){
+        const tot = m.comidas.reduce((a,c) => a + (Number(c.kcal)||0), 0);
+        h += `<div class="proposal${m.saved ? " saved" : ""}">
+          ${m.comidas.map(c => `<div class="prow"><div>${esc(c.nombre)}<small>${esc(c.porcion||"")} · P ${Math.round(c.prot||0)} C ${Math.round(c.carb||0)} G ${Math.round(c.grasa||0)}</small></div><b>${Math.round(c.kcal||0)} kcal</b></div>`).join("")}
+          ${m.saved ? '<div class="hint" style="margin:6px 0 0">✓ Agregado al registro</div>'
+                    : `<button class="btn btn-primary" data-save="${i}">Agregar (${Math.round(tot)} kcal) ✓</button>`}
+        </div>`;
+      }
+      return h;
+    }).join("") + (chatBusy ? '<div class="typing">escribiendo…</div>' : "");
+  }
+  log.querySelectorAll("[data-save]").forEach(b => b.onclick = () => {
+    const m = chatMsgs[Number(b.dataset.save)];
+    if(m.saved) return;
+    mutate(m.comidas.map(c => ({t:"add", pid, date: viewDate, entry: {
+      id: newId(), name: c.nombre || "Comida",
+      kcal: Number(c.kcal)||0, prot: Number(c.prot)||0, carb: Number(c.carb)||0, fat: Number(c.grasa)||0,
+      time: nowTime(), img: null
+    }})));
+    m.saved = true; renderChat(); toast("Agregado ✓");
+  });
+  log.scrollTop = log.scrollHeight;
+}
+
+async function sendChat(){
+  const inp = $("chatInput"), text = inp.value.trim();
+  if(!text || chatBusy) return;
+  if(!MOCK && !state.hasKey){ toast("Primero configura tu API key"); $("btnSettings").click(); return; }
+  stopMic();
+  inp.value = ""; inp.style.height = "";
+  chatMsgs.push({role:"user", text});
+  chatBusy = true; renderChat();
+  try{
+    let data;
+    if(MOCK){
+      data = {respuesta:"Anotado (demo).", comidas:[{nombre:"Huevos revueltos", porcion:"2 unidades", kcal:180, prot:12, carb:1, grasa:14}]};
+    }else{
+      let resp;
+      try{
+        resp = await fetch("/api/chat", {
+          method:"POST", headers: pinHeaders(),
+          body: JSON.stringify({
+            messages: chatMsgs.map(m => ({role: m.role === "user" ? "user" : "ai", text: m.text})),
+            today: getEntries(viewDate).map(e => ({name: e.name, kcal: e.kcal}))
+          })
+        });
+      }catch(e){ throw new Error("Sin conexión con el servidor. Puedes agregar la comida en modo ✏️ Manual."); }
+      if(resp.status === 401){ askPin(); throw new Error("Necesitas ingresar el PIN de acceso."); }
+      const j = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error(j.error || ("Error " + resp.status));
+      const t = (j.text||"").trim().replace(/^```(json)?/i,"").replace(/```$/,"").trim();
+      const a = t.indexOf("{"), z = t.lastIndexOf("}");
+      try{ data = JSON.parse(t.slice(a, z+1)); }catch(e){ data = {respuesta: t || "No te entendí, ¿me lo repites?", comidas: []}; }
+    }
+    const comidas = (Array.isArray(data.comidas) ? data.comidas : []).filter(c => c && Number(c.kcal) > 0);
+    chatMsgs.push({role:"ai", text: data.respuesta || (comidas.length ? "Esto entendí:" : "Ok."), comidas});
+  }catch(err){
+    chatMsgs.push({role:"ai", text: "⚠️ " + (err.message || err)});
+  }
+  chatBusy = false; renderChat();
+}
+
+/* dictado por voz (Web Speech API; funciona en Chrome/Edge/Safari, no en Firefox) */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+function stopMic(){ if(rec){ try{ rec.stop(); }catch(e){} rec = null; } $("chatMic").classList.remove("rec"); }
+$("chatMic").onclick = () => {
+  if(!SR){ toast("Tu navegador no soporta dictado por voz"); return; }
+  if(rec){ stopMic(); return; }
+  rec = new SR();
+  rec.lang = "es-CL"; rec.interimResults = true; rec.continuous = true;
+  const base = $("chatInput").value ? $("chatInput").value.trim() + " " : "";
+  rec.onresult = ev => {
+    let txt = "";
+    for(let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+    $("chatInput").value = base + txt;
+  };
+  rec.onerror = ev => { if(ev.error === "not-allowed") toast("Permite el micrófono para dictar"); stopMic(); };
+  rec.onend = () => { $("chatMic").classList.remove("rec"); rec = null; };
+  rec.start();
+  $("chatMic").classList.add("rec");
+};
+$("chatSend").onclick = sendChat;
+$("chatInput").addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendChat(); } });
+$("chatInput").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = Math.min(110, e.target.scrollHeight) + "px"; });
+$("btnChat").onclick = () => { renderChat(); open("ovChat"); };
 
 /* ================= selector de perfil (primera vez en el dispositivo) ================= */
 function renderWho(){

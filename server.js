@@ -33,7 +33,7 @@ const USE_UPSTASH = !!(UP_URL && UP_TOKEN);
 function freshProfile(name) {
   return { name, log: {}, settings: { goal: 2000, gprot: null, gcarb: null } };
 }
-let state = { v: 2, key: "", coach: {}, profiles: { p1: freshProfile("Yo"), p2: freshProfile("Hermano") } };
+let state = { v: 2, key: "", coach: {}, profiles: { p1: freshProfile("Nico"), p2: freshProfile("Chris"), p3: freshProfile("Mamá") } };
 
 async function loadState() {
   if (USE_UPSTASH) {
@@ -167,13 +167,14 @@ Responde SOLO con JSON válido, sin texto adicional ni markdown, con esta estruc
 
 Reglas: estima porciones por el tamaño visual del plato y objetos de referencia. Los macros en gramos. Si la imagen no muestra comida, responde {"error": "descripción breve"}.`;
 
-function analyze(imageBase64, mediaType, cb) {
+/* req = { prompt, image?, mediaType?, maxTokens? } — image es base64 (opcional) */
+function askAI(req, cb) {
   const key = aiKey();
   if (!key) return cb({ status: 400, error: "Falta la API key de IA. Configúrala en ⚙️ Ajustes (sirve para todos los dispositivos)." });
-  if (key.startsWith("sk-ant-")) return callAnthropic(key, imageBase64, mediaType, cb);
+  if (key.startsWith("sk-ant-")) return callAnthropic(key, req, cb);
   // Google: formato clásico "AIza…" o el nuevo "AQ.…"
-  if (key.startsWith("AIza") || key.startsWith("AQ.")) return callGemini(key, imageBase64, mediaType, cb);
-  return callOpenAI(key, imageBase64, mediaType, cb);
+  if (key.startsWith("AIza") || key.startsWith("AQ.")) return callGemini(key, req, cb);
+  return callOpenAI(key, req, cb);
 }
 
 function apiRequest(opts, body, extractText, cb) {
@@ -197,18 +198,11 @@ function apiRequest(opts, body, extractText, cb) {
   req.end();
 }
 
-function callAnthropic(key, imageBase64, mediaType, cb) {
-  const body = JSON.stringify({
-    model: "claude-sonnet-5",
-    max_tokens: 1200,
-    messages: [{
-      role: "user",
-      content: [
-        { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: imageBase64 } },
-        { type: "text", text: PROMPT }
-      ]
-    }]
-  });
+function callAnthropic(key, r, cb) {
+  const content = [];
+  if (r.image) content.push({ type: "image", source: { type: "base64", media_type: r.mediaType || "image/jpeg", data: r.image } });
+  content.push({ type: "text", text: r.prompt });
+  const body = JSON.stringify({ model: "claude-sonnet-5", max_tokens: r.maxTokens || 1200, messages: [{ role: "user", content }] });
   apiRequest({
     hostname: "api.anthropic.com", path: "/v1/messages", method: "POST",
     headers: {
@@ -218,17 +212,12 @@ function callAnthropic(key, imageBase64, mediaType, cb) {
   }, body, j => (j.content || []).filter(b => b.type === "text").map(b => b.text).join(""), cb);
 }
 
-function callGemini(key, imageBase64, mediaType, cb, model) {
+function callGemini(key, r, cb, model) {
   model = model || "gemini-flash-latest";
-  const body = JSON.stringify({
-    contents: [{
-      parts: [
-        { inline_data: { mime_type: mediaType || "image/jpeg", data: imageBase64 } },
-        { text: PROMPT }
-      ]
-    }],
-    generationConfig: { maxOutputTokens: 4000 }
-  });
+  const parts = [];
+  if (r.image) parts.push({ inline_data: { mime_type: r.mediaType || "image/jpeg", data: r.image } });
+  parts.push({ text: r.prompt });
+  const body = JSON.stringify({ contents: [{ parts }], generationConfig: { maxOutputTokens: 4000 } });
   apiRequest({
     hostname: "generativelanguage.googleapis.com",
     path: "/v1beta/models/" + model + ":generateContent",
@@ -241,24 +230,17 @@ function callGemini(key, imageBase64, mediaType, cb, model) {
     .map(p => p.text || "").join(""), (err, ok) => {
     // 503 = modelo congestionado (pasa en el plan gratis): probar con el lite
     if (err && /503/.test(err.error || "") && model === "gemini-flash-latest") {
-      return callGemini(key, imageBase64, mediaType, cb, "gemini-flash-lite-latest");
+      return callGemini(key, r, cb, "gemini-flash-lite-latest");
     }
     cb(err, ok);
   });
 }
 
-function callOpenAI(key, imageBase64, mediaType, cb) {
-  const body = JSON.stringify({
-    model: "gpt-4o-mini",
-    max_tokens: 1200,
-    messages: [{
-      role: "user",
-      content: [
-        { type: "image_url", image_url: { url: "data:" + (mediaType || "image/jpeg") + ";base64," + imageBase64 } },
-        { type: "text", text: PROMPT }
-      ]
-    }]
-  });
+function callOpenAI(key, r, cb) {
+  const content = [];
+  if (r.image) content.push({ type: "image_url", image_url: { url: "data:" + (r.mediaType || "image/jpeg") + ";base64," + r.image } });
+  content.push({ type: "text", text: r.prompt });
+  const body = JSON.stringify({ model: "gpt-4o-mini", max_tokens: r.maxTokens || 1200, messages: [{ role: "user", content }] });
   apiRequest({
     hostname: "api.openai.com", path: "/v1/chat/completions", method: "POST",
     headers: {
@@ -266,6 +248,45 @@ function callOpenAI(key, imageBase64, mediaType, cb) {
       "authorization": "Bearer " + key
     }
   }, body, j => (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || "", cb);
+}
+
+/* foto (+ corrección opcional del usuario sobre un análisis previo) */
+function analyze(body, cb) {
+  let prompt = PROMPT;
+  const hint = typeof body.hint === "string" ? body.hint.trim().slice(0, 600) : "";
+  if (hint) {
+    prompt += "\n\nEl usuario corrige tu análisis anterior";
+    if (body.previous) prompt += " (que fue: " + JSON.stringify(body.previous).slice(0, 2500) + ")";
+    prompt += ". Su corrección, que tiene prioridad sobre lo que ves en la foto: \"" + hint + "\". Devuelve el JSON completo actualizado.";
+  }
+  askAI({ prompt, image: body.image, mediaType: body.mediaType }, cb);
+}
+
+/* conversación: el usuario cuenta en texto libre lo que comió */
+const CHAT_PROMPT = `Eres el asistente de un tracker de calorías. El usuario te cuenta en lenguaje natural lo que comió o bebió; tú estimas calorías y macros y él las confirma para guardarlas.
+
+Responde SOLO con JSON válido, sin markdown, con esta estructura:
+{
+  "respuesta": "mensaje breve y amable en español (1-2 frases)",
+  "comidas": [
+    {"nombre": "alimento o plato", "porcion": "cantidad estimada", "kcal": 0, "prot": 0, "carb": 0, "grasa": 0}
+  ]
+}
+
+Reglas:
+- "comidas" incluye SOLO lo nuevo mencionado en el ÚLTIMO mensaje del usuario (no repitas lo ya registrado hoy ni lo ya propuesto antes). Un elemento por comida/plato.
+- Si el usuario corrige algo ("eran 2, no 3"), devuelve la versión corregida en "comidas".
+- Si solo pregunta o conversa, deja "comidas" vacío y contesta en "respuesta".
+- Si no da cantidades usa porciones típicas chilenas y dilo en la respuesta. Macros en gramos.`;
+
+function chat(body, cb) {
+  const msgs = (Array.isArray(body.messages) ? body.messages : []).slice(-12);
+  if (!msgs.length) return cb({ status: 400, error: "Falta el mensaje." });
+  const transcript = msgs.map(m => (m.role === "user" ? "Usuario: " : "Asistente: ") + String(m.text || "").slice(0, 800)).join("\n");
+  const today = Array.isArray(body.today)
+    ? body.today.slice(0, 40).map(e => "- " + String(e.name || "").slice(0, 60) + " (" + Math.round(Number(e.kcal) || 0) + " kcal)").join("\n") : "";
+  const prompt = CHAT_PROMPT + "\n\nYa registrado hoy:\n" + (today || "(nada todavía)") + "\n\nConversación:\n" + transcript + "\nAsistente:";
+  askAI({ prompt, maxTokens: 1500 }, cb);
 }
 
 /* ================= HTTP ================= */
@@ -318,7 +339,15 @@ const server = http.createServer((req, res) => {
     if (p === "/api/analyze" && req.method === "POST") {
       return readBody(req, res, 15 * 1024 * 1024, body => {
         if (!body.image) return sendJSON(res, 400, { error: "Falta la imagen." });
-        analyze(body.image, body.mediaType, (err, ok) => {
+        analyze(body, (err, ok) => {
+          if (err) return sendJSON(res, err.status, { error: err.error });
+          sendJSON(res, 200, ok);
+        });
+      });
+    }
+    if (p === "/api/chat" && req.method === "POST") {
+      return readBody(req, res, 256 * 1024, body => {
+        chat(body, (err, ok) => {
           if (err) return sendJSON(res, err.status, { error: err.error });
           sendJSON(res, 200, ok);
         });
@@ -345,12 +374,16 @@ const server = http.createServer((req, res) => {
     if (raw && raw.profiles) {
       state = raw;
       state.coach = state.coach || {};
+      if (!state.profiles.p3) state.profiles.p3 = freshProfile("Mamá");
+      // renombrar los nombres por defecto antiguos
+      if (state.profiles.p1 && state.profiles.p1.name === "Yo") state.profiles.p1.name = "Nico";
+      if (state.profiles.p2 && state.profiles.p2.name === "Hermano") state.profiles.p2.name = "Chris";
     } else if (raw) {
       // migración desde el formato v1 (un solo usuario)
       const s = raw.settings || {};
       state.key = s.key || "";
       state.profiles.p1 = {
-        name: "Yo",
+        name: "Nico",
         log: raw.log || {},
         settings: { goal: s.goal || 2000, gprot: s.gprot || null, gcarb: s.gcarb || null }
       };
