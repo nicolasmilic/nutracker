@@ -237,8 +237,9 @@ function callGemini(key, r, cb, model, noThink) {
   }, body, j => ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
     .map(p => p.text || "").join(""), (err, ok) => {
     if (err) {
-      // el modelo no acepta thinkingConfig: reintentar igual sin él
-      if (gc.thinkingConfig && /thinking/i.test(err.error || "")) return callGemini(key, r, cb, model, true);
+      // algunos modelos rechazan thinkingConfig con un 400 genérico ("invalid argument"):
+      // reintentar el mismo modelo sin esa opción
+      if (gc.thinkingConfig && /Error 400/.test(err.error || "") && !/API key/i.test(err.error || "")) return callGemini(key, r, cb, model, true);
       // congestionado / lento / cuota: probar el otro modelo una vez
       const other = model === LITE ? FLASH : LITE;
       if ((err.status === 504 || /50[03]|429/.test(err.error || "")) && !r._tried.includes(other)) {
