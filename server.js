@@ -215,7 +215,8 @@ function callAnthropic(key, r, cb) {
 }
 
 function callGemini(key, r, cb, model) {
-  model = model || "gemini-flash-latest";
+  // texto/audio sin foto: el modelo lite responde en segundos (el flash "piensa" y puede tardar >1 min)
+  model = model || (r.fast ? "gemini-flash-lite-latest" : "gemini-flash-latest");
   const parts = [];
   if (r.image) parts.push({ inline_data: { mime_type: r.mediaType || "image/jpeg", data: r.image } });
   parts.push({ text: r.prompt });
@@ -233,6 +234,9 @@ function callGemini(key, r, cb, model) {
     // 503 = modelo congestionado (pasa en el plan gratis): probar con el lite
     if (err && /503/.test(err.error || "") && model === "gemini-flash-latest") {
       return callGemini(key, r, cb, "gemini-flash-lite-latest");
+    }
+    if (err && /503/.test(err.error || "") && r.fast && model === "gemini-flash-lite-latest") {
+      return callGemini(key, r, cb, "gemini-flash-latest");
     }
     cb(err, ok);
   });
@@ -288,7 +292,7 @@ function chat(body, cb) {
   const today = Array.isArray(body.today)
     ? body.today.slice(0, 40).map(e => "- " + String(e.name || "").slice(0, 60) + " (" + Math.round(Number(e.kcal) || 0) + " kcal)").join("\n") : "";
   const prompt = CHAT_PROMPT + "\n\nYa registrado hoy:\n" + (today || "(nada todavía)") + "\n\nConversación:\n" + transcript + "\nAsistente:";
-  askAI({ prompt, maxTokens: 1500 }, cb);
+  askAI({ prompt, maxTokens: 1500, fast: true }, cb);
 }
 
 /* ================= HTTP ================= */
@@ -351,7 +355,7 @@ const server = http.createServer((req, res) => {
       return readBody(req, res, 8 * 1024 * 1024, body => {
         if (!body.audio) return sendJSON(res, 400, { error: "Falta el audio." });
         const prompt = "Transcribe este audio en español, tal cual se dice, sin comentarios ni comillas. Si no se entiende nada, responde con texto vacío.";
-        askAI({ prompt, image: body.audio, mediaType: String(body.mediaType || "audio/webm").split(";")[0], audio: true, maxTokens: 800 }, (err, ok) => {
+        askAI({ prompt, image: body.audio, mediaType: String(body.mediaType || "audio/webm").split(";")[0], audio: true, fast: true, maxTokens: 800 }, (err, ok) => {
           if (err) return sendJSON(res, err.status, { error: err.error });
           sendJSON(res, 200, { text: (ok.text || "").trim() });
         });

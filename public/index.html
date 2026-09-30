@@ -1482,13 +1482,13 @@ async function sendChat(){
       let resp;
       try{
         resp = await fetch("/api/chat", {
-          method:"POST", headers: pinHeaders(),
+          method:"POST", headers: pinHeaders(), signal: AbortSignal.timeout(70000),
           body: JSON.stringify({
             messages: chatMsgs.map(m => ({role: m.role === "user" ? "user" : "ai", text: m.text})),
             today: getEntries(viewDate).map(e => ({name: e.name, kcal: e.kcal}))
           })
         });
-      }catch(e){ throw new Error("Sin conexión con el servidor. Puedes agregar la comida en modo ✏️ Manual."); }
+      }catch(e){ throw new Error(e && e.name === "TimeoutError" ? "La IA está tardando demasiado. Intenta de nuevo en un momento." : "Sin conexión con el servidor. Puedes agregar la comida en modo ✏️ Manual."); }
       if(resp.status === 401){ askPin(); throw new Error("Necesitas ingresar el PIN de acceso."); }
       const j = await resp.json().catch(() => ({}));
       if(!resp.ok) throw new Error(j.error || ("Error " + resp.status));
