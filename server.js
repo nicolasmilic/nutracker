@@ -12,6 +12,7 @@
  *  UPSTASH_REDIS_REST_URL    si están ambas, los datos van a Upstash en vez del
  *  UPSTASH_REDIS_REST_TOKEN  disco (obligatorio en Render: su disco se borra)
  *  ANTHROPIC_API_KEY / OPENAI_API_KEY   key de IA si no se configura desde la app
+ *  GARMIN_API_KEY            clave API personal de Garmin Connect (panel Garmin de Nico)
  */
 "use strict";
 const http = require("http");
@@ -19,6 +20,7 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const garmin = require("./garmin");
 
 const PORT = process.env.PORT || 3210;
 const ROOT = __dirname;
@@ -110,7 +112,8 @@ function publicState() {
   return {
     profiles: state.profiles,
     coach: state.coach,
-    hasKey: !!aiKey()
+    hasKey: !!aiKey(),
+    hasGarmin: garmin.enabled()
   };
 }
 
@@ -371,6 +374,14 @@ const server = http.createServer((req, res) => {
           sendJSON(res, 200, ok);
         });
       });
+    }
+    if (p === "/api/garmin" && req.method === "GET") {
+      if (!garmin.enabled()) return sendJSON(res, 400, { error: "Falta la variable GARMIN_API_KEY en el servidor." });
+      const date = url.searchParams.get("date") || "";
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return sendJSON(res, 400, { error: "Fecha inválida." });
+      return garmin.getDay(date)
+        .then(d => sendJSON(res, 200, d))
+        .catch(e => sendJSON(res, 502, { error: e.message || "No se pudo consultar Garmin." }));
     }
     if (p === "/api/transcribe" && req.method === "POST") {
       return readBody(req, res, 8 * 1024 * 1024, body => {

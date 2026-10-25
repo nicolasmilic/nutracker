@@ -596,6 +596,7 @@
 </div>
 
 <div class="coach" id="coachCard"></div>
+<a class="btn btn-ghost" id="garminLink" href="/garmin.html" style="display:none;width:100%;margin:-4px 0 14px;text-decoration:none">⌚ Mi panel Garmin</a>
 
 <div class="bigbtns">
   <button class="btn btn-primary" id="btnPhoto">📸 Foto a mi plato</button>
@@ -930,6 +931,7 @@ function render(){
   setMacro(tot.f, gf, "sumFat", "goalFat", "barFat");
 
   renderCoach(coach);
+  $("garminLink").style.display = (pid === "p1" && state.hasGarmin) ? "flex" : "none";
 
   const wrap = $("entries");
   if(!es.length){

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#070a12">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>Panel Garmin — NuTracker</title>
+<style>
+  :root{
+    --bg:#070a12; --card:rgba(255,255,255,.045); --card2:rgba(255,255,255,.075);
+    --border:rgba(255,255,255,.085); --input:rgba(6,9,16,.6);
+    --text:#f3f5fb; --muted:#8f9ab3; --accent:#5eead4; --accent2:#2dd4bf;
+    --green:#4ade80; --yellow:#fcd34d; --red:#f87171;
+    --sleep:#a78bfa; --strain:#60a5fa; --hrv:#5eead4; --pink:#f9a8d4; --orange:#fb923c;
+    --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  html{background:var(--bg);}
+  body{
+    font-family:var(--font); font-feature-settings:"tnum" 1; -webkit-font-smoothing:antialiased;
+    color:var(--text); max-width:560px; margin:0 auto; padding:20px 16px 60px;
+    background:
+      radial-gradient(520px 340px at 90% -60px, rgba(167,139,250,.16), transparent 70%),
+      radial-gradient(560px 380px at 6% -40px, rgba(45,212,191,.16), transparent 70%),
+      var(--bg);
+    background-attachment:fixed; min-height:100vh;
+  }
+  a{color:inherit; text-decoration:none;}
+  .top{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .top h1{font-size:20px; font-weight:800; letter-spacing:-.5px;}
+  .top h1 small{display:block; font-size:11.5px; color:var(--muted); font-weight:600; letter-spacing:0;}
+  .iconbtn{
+    background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:14px;
+    width:40px; height:40px; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .iconbtn:active{transform:scale(.94);}
+  .datebar{display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:16px;}
+  .datebar button{width:34px; height:34px; border-radius:50%; font-size:17px;}
+  .datebar .lbl{font-weight:700; font-size:15px; min-width:150px; text-align:center;}
+
+  .card{
+    background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.03) 70%);
+    border:1px solid var(--border); border-radius:24px; padding:18px; margin-bottom:14px;
+    box-shadow:0 18px 50px -24px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  }
+  .card h2{font-size:12px; text-transform:uppercase; letter-spacing:1.3px; color:var(--muted); font-weight:700; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;}
+  .card h2 b{color:var(--text); letter-spacing:0; font-size:13px; text-transform:none;}
+
+  /* hero */
+  .rings{display:flex; justify-content:space-between; gap:8px;}
+  .ringbox{flex:1; text-align:center;}
+  .ringbox svg{width:100%; max-width:120px; height:auto; display:block; margin:0 auto; transform:rotate(-90deg);}
+  .ringbox .track{fill:none; stroke:rgba(255,255,255,.08); stroke-width:9;}
+  .ringbox .prog{fill:none; stroke-width:9; stroke-linecap:round; transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1);}
+  .ringwrap{position:relative; max-width:120px; margin:0 auto;}
+  .ringwrap .num{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .ringwrap .num b{font-size:30px; font-weight:800; letter-spacing:-1px; line-height:1;}
+  .ringwrap .num small{font-size:11px; color:var(--muted); font-weight:600; margin-top:2px;}
+  .ringbox .cap{font-size:11px; text-transform:uppercase; letter-spacing:1.1px; font-weight:700; margin-top:10px; color:var(--muted);}
+  .verdict{margin-top:16px; padding:12px 14px; border-radius:16px; background:rgba(6,9,16,.45); border:1px solid var(--border); font-size:13.5px; line-height:1.55;}
+  .verdict b{font-weight:700;}
+
+  .row{display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:14px; gap:10px;}
+  .row:last-child{border-bottom:none;}
+  .row .k{color:var(--muted); font-weight:500;}
+  .row .v{font-weight:700; text-align:right;}
+  .row small{color:var(--muted); font-weight:500;}
+  .bar{height:6px; background:rgba(255,255,255,.08); border-radius:99px; overflow:hidden; margin-top:6px;}
+  .bar i{display:block; height:100%; border-radius:99px;}
+  .part{padding:10px 0; border-bottom:1px solid var(--border);}
+  .part:last-child{border-bottom:none;}
+  .part .t{display:flex; justify-content:space-between; font-size:14px;}
+  .part .t span:first-child{color:var(--muted);}
+  .part .t b{font-weight:700;}
+
+  .tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .tile{background:rgba(6,9,16,.45); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:11px 10px;}
+  .tile .l{font-size:10px; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); font-weight:700;}
+  .tile .n{font-size:20px; font-weight:800; margin-top:3px; letter-spacing:-.5px;}
+  .tile .n small{font-size:11px; color:var(--muted); font-weight:600; margin-left:2px;}
+  .tiles.two{grid-template-columns:repeat(2,1fr);}
+  .tiles.four{grid-template-columns:repeat(4,1fr);}
+
+  .stages{display:flex; height:14px; border-radius:99px; overflow:hidden; gap:2px; margin:6px 0 10px;}
+  .stages div{height:100%;}
+  .legend{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12px; color:var(--muted);}
+  .legend i{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:middle;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+  .chip{font-size:11px; font-weight:700; border-radius:99px; padding:4px 10px; border:1px solid var(--border); background:rgba(6,9,16,.5);}
+  .chip.EXCELLENT,.chip.GOOD{color:var(--green); border-color:rgba(74,222,128,.3);}
+  .chip.FAIR{color:var(--yellow); border-color:rgba(252,211,77,.3);}
+  .chip.POOR{color:var(--red); border-color:rgba(248,113,113,.3);}
+
+  svg.chart{width:100%; height:auto; display:block; overflow:visible;}
+  .chart text{fill:var(--muted); font-size:9px; font-family:var(--font);}
+  .grid line{stroke:rgba(255,255,255,.07); stroke-width:1;}
+  .trend h3{font-size:13px; font-weight:700; margin:16px 0 4px; display:flex; justify-content:space-between;}
+  .trend h3:first-of-type{margin-top:0;}
+  .trend h3 span{color:var(--muted); font-weight:600; font-size:12px;}
+
+  .act{padding:12px 0; border-bottom:1px solid var(--border); cursor:pointer;}
+  .act:last-child{border-bottom:none; padding-bottom:0;}
+  .act .h{display:flex; align-items:center; gap:12px;}
+  .act .ic{width:42px; height:42px; border-radius:14px; background:rgba(255,255,255,.07); display:flex; align-items:center; justify-content:center; font-size:21px; flex-shrink:0;}
+  .act .nm{font-weight:700; font-size:14.5px;}
+  .act .sub{font-size:12px; color:var(--muted); margin-top:2px;}
+  .act .kc{margin-left:auto; text-align:right; font-weight:800; font-size:15px; white-space:nowrap;}
+  .act .kc small{display:block; font-size:11px; color:var(--muted); font-weight:600;}
+  .act .more{display:none; margin-top:12px;}
+  .act.open .more{display:block;}
+  .zbar{display:flex; height:10px; border-radius:99px; overflow:hidden; gap:2px; margin-top:12px;}
+  .zbar div{height:100%;}
+
+  .state{text-align:center; padding:60px 20px; color:var(--muted); line-height:1.7;}
+  .spinner{width:38px; height:38px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 14px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#fca5a5; border-radius:16px; padding:14px; font-size:13.5px; line-height:1.6;}
+  .note{font-size:11.5px; color:var(--muted); line-height:1.6; margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a class="iconbtn" href="/" title="Volver a NuTracker">‹</a>
+  <h1 style="flex:1;margin-left:12px">⌚ Panel Garmin<small id="who">Nico</small></h1>
+  <button class="iconbtn" id="btnReload" title="Actualizar">⟳</button>
+</div>
+<div class="datebar">
+  <button class="iconbtn" id="prev">‹</button>
+  <div class="lbl" id="dateLbl"></div>
+  <button class="iconbtn" id="next">›</button>
+</div>
+
+<div id="root"><div class="state"><div class="spinner"></div>Cargando datos de Garmin…</div></div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => { const d = document.createElement("div"); d.textContent = String(s == null ? "" : s); return d.innerHTML; };
+const pad = n => String(n).padStart(2, "0");
+function ds(d){ return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+function shift(s, n){ const [y,m,d] = s.split("-").map(Number); return ds(new Date(y, m-1, d+n)); }
+const todayS = ds(new Date());
+let date = (new URLSearchParams(location.search).get("d")) || todayS;
+let data = null, seq = 0;
+
+const fmtDay = s => {
+  if(s === todayS) return "Hoy";
+  if(s === shift(todayS,-1)) return "Ayer";
+  const [y,m,d] = s.split("-").map(Number);
+  return new Date(y,m-1,d).toLocaleDateString("es-CL",{weekday:"short", day:"numeric", month:"short"});
+};
+const short = s => { const [y,m,d] = s.split("-").map(Number); return d + "/" + m; };
+const hm = sec => { const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60); return h + "h " + pad(m) + "m"; };
+const clock = ms => new Date(ms).toLocaleTimeString("es-CL",{hour:"2-digit", minute:"2-digit"});
+const num = (v, d) => v == null ? "—" : (d ? (Math.round(v*10**d)/10**d).toFixed(d) : Math.round(v).toLocaleString("es-CL"));
+
+const recColor = v => v == null ? "var(--muted)" : v >= 67 ? "var(--green)" : v >= 34 ? "var(--yellow)" : "var(--red)";
+
+/* ---------- gráficos SVG ---------- */
+function ring(value, max, color, big, small, cap){
+  const R = 42, C = 2 * Math.PI * R;
+  const pct = value == null ? 0 : Math.max(0, Math.min(1, value / max));
+  return `<div class="ringbox"><div class="ringwrap">
+    <svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="${R}"/>
+    <circle class="prog" cx="50" cy="50" r="${R}" stroke="${color}" style="filter:drop-shadow(0 0 6px ${color}66)"
+      stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
+    <div class="num"><b style="color:${color}">${big}</b><small>${small}</small></div></div>
+    <div class="cap">${cap}</div></div>`;
+}
+
+function bars(vals, o){
+  o = o || {};
+  const W = 320, H = o.h || 90, pl = 4, pb = 16, n = vals.length;
+  const mx = o.max || Math.max(1, ...vals.map(v => v || 0));
+  const bw = (W - pl*2) / n;
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}"><g class="grid">`;
+  [0.5, 1].forEach(f => { const y = (H-pb) - (H-pb-6)*f; s += `<line x1="0" x2="${W}" y1="${y}" y2="${y}"/>`; });
+  s += "</g>";
+  vals.forEach((v, i) => {
+    const h = v == null ? 0 : Math.max(2, (H-pb-6) * Math.min(1, v/mx));
+    const x = pl + i*bw + bw*0.16, w = bw*0.68, y = H-pb-h;
+    const c = o.color ? (typeof o.color === "function" ? o.color(v, i) : o.color) : "var(--accent)";
+    if(v != null) s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" fill="${c}" opacity="${i === n-1 ? 1 : .75}"/>`;
+    if(o.labels && (i === 0 || i === n-1 || i === Math.floor(n/2))) s += `<text x="${x + w/2}" y="${H-3}" text-anchor="middle">${o.labels[i]}</text>`;
+  });
+  return s + "</svg>";
+}
+
+function line(pts, o){
+  o = o || {};
+  // pts: [[x,y],...] con x numérico; null en y = hueco
+  const W = 320, H = o.h || 110, pl = 24, pr = 6, pt = 8, pb = 16;
+  const ok = pts.filter(p => p[1] != null);
+  if(ok.length < 2) return '<div class="note">Sin datos suficientes.</div>';
+  const xs = ok.map(p => p[0]), ys = ok.map(p => p[1]).concat(o.band ? o.band : []);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = o.min != null ? o.min : Math.min(...ys), y1 = o.max != null ? o.max : Math.max(...ys);
+  if(y0 === y1){ y0 -= 1; y1 += 1; }
+  const pad = (y1 - y0) * .1; if(o.min == null) y0 -= pad; if(o.max == null) y1 += pad;
+  const X = x => pl + (W-pl-pr) * (x - x0) / Math.max(1, x1 - x0);
+  const Y = y => pt + (H-pt-pb) * (1 - (y - y0) / (y1 - y0));
+  let s = `<svg class="chart" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="g${o.id||0}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${o.color}" stop-opacity=".35"/><stop offset="1" stop-color="${o.color}" stop-opacity="0"/></linearGradient></defs><g class="grid">`;
+  for(let i = 0; i <= 3; i++){
+    const v = y0 + (y1-y0) * i/3, y = Y(v);
+    s += `<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}"/>`;
+  }
+  s += "</g>";
+  for(let i = 0; i <= 3; i++){ const v = y0 + (y1-y0) * i/3; s += `<text x="0" y="${Y(v)+3}">${Math.round(v)}</text>`; }
+  if(o.band) s += `<rect x="${pl}" y="${Y(o.band[1])}" width="${W-pl-pr}" height="${Math.max(2, Y(o.band[0]) - Y(o.band[1]))}" fill="${o.color}" opacity=".10" rx="4"/>`;
+  // segmentos continuos
+  let seg = [], segs = [];
+  pts.forEach(p => { if(p[1] == null){ if(seg.length) segs.push(seg); seg = []; } else seg.push(p); });
+  if(seg.length) segs.push(seg);
+  segs.forEach(sg => {
+    const d = sg.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ");
+    if(o.area && sg.length > 1) s += `<path d="${d} L${X(sg[sg.length-1][0]).toFixed(1)} ${H-pb} L${X(sg[0][0]).toFixed(1)} ${H-pb} Z" fill="url(#g${o.id||0})"/>`;
+    s += `<path d="${d}" fill="none" stroke="${o.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  if(o.dots) ok.forEach(p => s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="2.6" fill="${o.color}"/>`);
+  (o.ticks || []).forEach(t => s += `<text x="${X(t[0])}" y="${H-3}" text-anchor="middle">${t[1]}</text>`);
+  return s + "</svg>";
+}
+
+/* ---------- vistas ---------- */
+const TYPE = {
+  strength_training:["🏋️","Fuerza"], walking:["🚶","Caminata"], running:["🏃","Correr"], cycling:["🚴","Ciclismo"],
+  indoor_cardio:["❤️‍🔥","Cardio"], hiking:["🥾","Senderismo"], tennis:["🎾","Tenis"], swimming:["🏊","Natación"],
+  yoga:["🧘","Yoga"], elliptical:["🌀","Elíptica"], treadmill_running:["🏃","Cinta"], indoor_cycling:["🚴","Spinning"],
+  lap_swimming:["🏊","Natación"], hiit:["🔥","HIIT"], stair_climbing:["🪜","Escaleras"], pilates:["🤸","Pilates"]
+};
+const ZCOL = ["#94a3b8","#5eead4","#fcd34d","#fb923c","#f87171"];
+
+function verdict(d){
+  const r = d.recovery.score, st = d.strain;
+  if(r == null) return "Aún no hay suficientes datos de sueño y HRV para este día.";
+  let txt, lo, hi;
+  if(r >= 67){ txt = "Tu cuerpo está <b style='color:var(--green)'>bien recuperado</b>. Buen día para entrenar fuerte."; lo = 14; hi = 18; }
+  else if(r >= 34){ txt = "Recuperación <b style='color:var(--yellow)'>moderada</b>. Entrena, pero controlando la intensidad."; lo = 10; hi = 14; }
+  else { txt = "Recuperación <b style='color:var(--red)'>baja</b>. Prioriza descanso y movimiento suave."; lo = 4; hi = 10; }
+  return txt + `<br><span style="color:var(--muted)">Esfuerzo sugerido: <b style="color:var(--text)">${lo}–${hi}</b> · llevas <b style="color:var(--text)">${num(st,1)}</b></span>`;
+}
+
+function recoveryCard(d){
+  const p = d.recovery.parts, rows = [];
+  if(p.hrv) rows.push(`<div class="part"><div class="t"><span>HRV nocturna</span><b>${p.hrv.value} ms <small style="color:var(--muted)">(prom. ${p.hrv.weekly})</small></b></div>
+    <div class="bar"><i style="width:${p.hrv.score}%;background:${recColor(p.hrv.score)}"></i></div>
+    <div class="note" style="margin-top:4px">Rango normal tuyo: ${p.hrv.low}–${p.hrv.high} ms · ${esc(p.hrv.status||"")}</div></div>`);
+  if(p.sleep) rows.push(`<div class="part"><div class="t"><span>Calidad de sueño</span><b>${p.sleep.value}</b></div>
+    <div class="bar"><i style="width:${p.sleep.value}%;background:${recColor(p.sleep.value)}"></i></div></div>`);
+  if(p.rhr) rows.push(`<div class="part"><div class="t"><span>FC en reposo</span><b>${p.rhr.value} lpm <small style="color:var(--muted)">(14 d: ${p.rhr.ref})</small></b></div>
+    <div class="bar"><i style="width:${p.rhr.score}%;background:${recColor(p.rhr.score)}"></i></div></div>`);
+  if(p.bodyBattery) rows.push(`<div class="part"><div class="t"><span>Body Battery al despertar</span><b>${p.bodyBattery.value}</b></div>
+    <div class="bar"><i style="width:${p.bodyBattery.value}%;background:${recColor(p.bodyBattery.value)}"></i></div></div>`);
+  return `<div class="card"><h2>Recuperación <b style="color:${recColor(d.recovery.score)}">${d.recovery.score == null ? "—" : d.recovery.score + "%"}</b></h2>${rows.join("") || '<div class="note">Sin datos.</div>'}
+    <div class="note">Puntaje estimado por NuTracker: HRV 40 %, sueño 30 %, FC en reposo 15 %, Body Battery 15 %. Garmin no entrega un % de recuperación como Whoop.</div></div>`;
+}
+
+const PART_LBL = {totalDuration:"Duración", stress:"Estrés", awakeCount:"Despertares", restlessness:"Inquietud", remPercentage:"REM", lightPercentage:"Ligero", deepPercentage:"Profundo"};
+const Q_LBL = {EXCELLENT:"Excelente", GOOD:"Bien", FAIR:"Regular", POOR:"Bajo"};
+function sleepCard(d){
+  const s = d.sleep;
+  if(!s) return `<div class="card"><h2>Sueño</h2><div class="note">No hay un sueño registrado para esta fecha.</div></div>`;
+  const tot = (s.deep||0) + (s.light||0) + (s.rem||0) + (s.awake||0) || 1;
+  const pc = v => Math.round((v||0) / tot * 100);
+  const need = s.needMinutes ? s.needMinutes * 60 : 8 * 3600;
+  const ok = Math.min(100, s.seconds / need * 100);
+  return `<div class="card"><h2>Sueño <b style="color:var(--sleep)">${s.score != null ? s.score + " pts" : ""}</b></h2>
+    <div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:32px;font-weight:800;letter-spacing:-1px">${hm(s.seconds)}</span>
+    <span style="color:var(--muted);font-size:13px">de ${hm(need)} necesarias</span></div>
+    <div class="bar"><i style="width:${ok}%;background:var(--sleep)"></i></div>
+    <div class="note" style="margin:6px 0 12px">${clock(s.start)} → ${clock(s.end)}${s.napSeconds ? " · siesta " + hm(s.napSeconds) : ""}</div>
+    <div class="stages">
+      <div style="width:${pc(s.deep)}%;background:#6366f1"></div><div style="width:${pc(s.light)}%;background:#60a5fa"></div>
+      <div style="width:${pc(s.rem)}%;background:#a78bfa"></div><div style="width:${pc(s.awake)}%;background:#f87171"></div></div>
+    <div class="legend"><span><i style="background:#6366f1"></i>Profundo ${hm(s.deep)} · ${pc(s.deep)}%</span><span><i style="background:#60a5fa"></i>Ligero ${hm(s.light)} · ${pc(s.light)}%</span>
+      <span><i style="background:#a78bfa"></i>REM ${hm(s.rem)} · ${pc(s.rem)}%</span><span><i style="background:#f87171"></i>Despierto ${hm(s.awake)}</span></div>
+    <div class="tiles" style="margin-top:14px">
+      <div class="tile"><div class="l">FC media</div><div class="n">${num(s.avgHr)}<small>lpm</small></div></div>
+      <div class="tile"><div class="l">Respiración</div><div class="n">${num(s.resp)}<small>rpm</small></div></div>
+      <div class="tile"><div class="l">Despertares</div><div class="n">${num(s.awakeCount)}</div></div></div>
+    <div class="chips">${s.parts.map(p => `<span class="chip ${esc(p.q)}">${esc(PART_LBL[p.key]||p.key)}${p.value != null ? " " + p.value + "%" : ""} · ${esc(Q_LBL[p.q]||p.q)}</span>`).join("")}</div></div>`;
+}
+
+function bodyBatteryCard(d){
+  const b = d.bodyBattery;
+  const pts = (b.series||[]).map(p => [p[0], p[1]]);
+  const t0 = pts.length ? pts[0][0] : 0, t1 = pts.length ? pts[pts.length-1][0] : 1;
+  const ticks = pts.length > 1 ? [[t0, clock(t0)], [(t0+t1)/2, clock((t0+t1)/2)], [t1, clock(t1)]] : [];
+  return `<div class="card"><h2>Body Battery <b style="color:var(--accent)">${b.now != null ? b.now : "—"}</b></h2>
+    ${line(pts, {color:"#5eead4", area:true, min:0, max:100, id:1, ticks, dots:true})}
+    <div class="tiles four" style="margin-top:12px">
+      <div class="tile"><div class="l">Despertar</div><div class="n">${num(b.wake)}</div></div>
+      <div class="tile"><div class="l">Máx</div><div class="n">${num(b.high)}</div></div>
+      <div class="tile"><div class="l">Mín</div><div class="n">${num(b.low)}</div></div>
+      <div class="tile"><div class="l">Cargó/Gastó</div><div class="n" style="font-size:15px">+${num(b.charged)}/−${num(b.drained)}</div></div></div></div>`;
+}
+
+function hrCard(d){
+  const h = d.heartRate, pts = (h.series||[]).map(p => [p[0], p[1]]);
+  const t0 = pts.length ? pts[0][0] : 0, t1 = pts.length ? pts[pts.length-1][0] : 1;
+  const ticks = pts.length > 1 ? [[t0, clock(t0)], [(t0+t1)/2, clock((t0+t1)/2)], [t1, clock(t1)]] : [];
+  return `<div class="card"><h2>Frecuencia cardíaca</h2>
+    ${line(pts, {color:"#f87171", area:true, id:2, ticks})}
+    <div class="tiles" style="margin-top:12px">
+      <div class="tile"><div class="l">Reposo</div><div class="n">${num(h.resting)}<small>lpm</small></div></div>
+      <div class="tile"><div class="l">Mínima</div><div class="n">${num(h.min)}<small>lpm</small></div></div>
+      <div class="tile"><div class="l">Máxima</div><div class="n">${num(h.max)}<small>lpm</small></div></div></div></div>`;
+}
+
+function hrvCard(d){
+  const h = d.hrv, pts = (h.readings||[]).map(p => [p[0], p[1]]);
+  if(!pts.length && h.last == null) return "";
+  const t0 = pts.length ? pts[0][0] : 0, t1 = pts.length ? pts[pts.length-1][0] : 1;
+  const ticks = pts.length > 1 ? [[t0, clock(t0)], [t1, clock(t1)]] : [];
+  return `<div class="card"><h2>HRV <b style="color:var(--hrv)">${num(h.last)} ms</b></h2>
+    ${pts.length > 1 ? line(pts, {color:"#5eead4", id:3, band: h.low && h.high ? [h.low, h.high] : null, ticks}) : ""}
+    <div class="tiles" style="margin-top:12px">
+      <div class="tile"><div class="l">Anoche</div><div class="n">${num(h.last)}</div></div>
+      <div class="tile"><div class="l">Semanal</div><div class="n">${num(h.weekly)}</div></div>
+      <div class="tile"><div class="l">Normal</div><div class="n" style="font-size:15px">${h.low||"—"}–${h.high||"—"}</div></div></div>
+    <div class="note">La banda sombreada es tu rango normal. Estado: ${esc(h.status||"—")}.</div></div>`;
+}
+
+function dayCard(d){
+  const x = d.day, sp = x.stepGoal ? Math.min(100, (x.steps||0) / x.stepGoal * 100) : 0;
+  const im = (x.moderate||0) + 2*(x.vigorous||0), ip = x.intensityGoal ? Math.min(100, im / x.intensityGoal * 100) : 0;
+  const sp2 = x.stressPct || {};
+  const QS = {calm:"Calmo", balanced:"Equilibrado", stressful:"Estresante", very_stressful:"Muy estresante", CALM:"Calmo", BALANCED:"Equilibrado", STRESSFUL:"Estresante"};
+  return `<div class="card"><h2>Actividad del día</h2>
+    <div class="part"><div class="t"><span>Pasos</span><b>${num(x.steps)} <small style="color:var(--muted)">/ ${num(x.stepGoal)}</small></b></div><div class="bar"><i style="width:${sp}%;background:var(--accent)"></i></div></div>
+    <div class="part"><div class="t"><span>Minutos de intensidad</span><b>${im} <small style="color:var(--muted)">/ ${num(x.intensityGoal)}</small></b></div><div class="bar"><i style="width:${ip}%;background:var(--strain)"></i></div></div>
+    <div class="tiles" style="margin-top:12px">
+      <div class="tile"><div class="l">Calorías</div><div class="n">${num(x.kcalTotal)}</div></div>
+      <div class="tile"><div class="l">Activas</div><div class="n">${num(x.kcalActive)}</div></div>
+      <div class="tile"><div class="l">Distancia</div><div class="n">${x.distance != null ? (x.distance/1000).toFixed(1) : "—"}<small>km</small></div></div>
+      <div class="tile"><div class="l">Pisos</div><div class="n">${num(x.floors)}</div></div>
+      <div class="tile"><div class="l">Respiración</div><div class="n">${num(x.respiration)}<small>rpm</small></div></div>
+      <div class="tile"><div class="l">Estrés prom.</div><div class="n">${num(x.stressAvg)}</div></div></div>
+    <div class="note" style="margin-top:12px">Estrés: ${esc(QS[x.stressQualifier]||x.stressQualifier||"—")} · máx ${num(x.stressMax)} · reposo ${Math.round(sp2.rest||0)}% · bajo ${Math.round(sp2.low||0)}% · medio ${Math.round(sp2.medium||0)}% · alto ${Math.round(sp2.high||0)}%</div></div>`;
+}
+
+function trendCard(d){
+  const t = d.trend, lab = t.map(x => short(x.date));
+  const last = k => { for(let i = t.length-1; i >= 0; i--) if(t[i][k] != null) return t[i][k]; return null; };
+  const avg = k => { const v = t.map(x => x[k]).filter(v => v != null); return v.length ? v.reduce((a,b) => a+b, 0) / v.length : null; };
+  const idx = i => i;
+  return `<div class="card trend"><h2>Tendencia · ${t.length} días</h2>
+    <h3>Recuperación <span>prom. ${num(avg("recovery"))}%</span></h3>${bars(t.map(x => x.recovery), {max:100, color:v => recColor(v), labels:lab})}
+    <h3>HRV nocturna <span>prom. ${num(avg("hrv"))} ms</span></h3>${line(t.map((x,i) => [i, x.hrv]), {color:"#5eead4", dots:true, id:4, ticks:[[0,lab[0]],[Math.floor(t.length/2),lab[Math.floor(t.length/2)]],[t.length-1,lab[t.length-1]]]})}
+    <h3>Sueño <span>prom. ${num(avg("sleepHours"),1)} h</span></h3>${bars(t.map(x => x.sleepHours), {max:10, color:"#a78bfa", labels:lab})}
+    <h3>Esfuerzo estimado <span>prom. ${num(avg("strain"),1)}</span></h3>${bars(t.map(x => x.strain), {max:21, color:"#60a5fa", labels:lab})}
+    <h3>FC en reposo <span>prom. ${num(avg("rhr"),1)} lpm</span></h3>${line(t.map((x,i) => [i, x.rhr]), {color:"#f87171", dots:true, id:5, ticks:[[0,lab[0]],[Math.floor(t.length/2),lab[Math.floor(t.length/2)]],[t.length-1,lab[t.length-1]]]})}
+    <h3>Pasos <span>prom. ${num(avg("steps"))}</span></h3>${bars(t.map(x => x.steps), {color:(v,i) => t[i].stepGoal && v >= t[i].stepGoal ? "#4ade80" : "#5eead4", labels:lab})}
+    <h3>Estrés <span>prom. ${num(avg("stress"))}</span></h3>${bars(t.map(x => x.stress), {max:100, color:"#fb923c", labels:lab})}
+  </div>`;
+}
+
+function actCard(d){
+  if(!d.activities.length) return "";
+  const zones = d.hrZones;
+  const items = d.activities.map((a, i) => {
+    const [ic, nm] = TYPE[a.type] || ["🏅", (a.type||"Actividad").replace(/_/g," ")];
+    const when = a.start ? a.start.slice(0,10) : "", tm = a.start ? a.start.slice(11,16) : "";
+    const zt = a.zones.reduce((s,v) => s+v, 0) || 1;
+    return `<div class="act" data-i="${i}">
+      <div class="h"><div class="ic">${ic}</div>
+        <div><div class="nm">${esc(a.name || nm)}</div><div class="sub">${esc(fmtDay(when))} · ${tm} · ${hm(a.duration||0)}${a.distance > 50 ? " · " + (a.distance/1000).toFixed(2) + " km" : ""}</div></div>
+        <div class="kc">${num(a.calories)}<small>kcal</small></div></div>
+      <div class="more">
+        <div class="tiles four">
+          <div class="tile"><div class="l">FC prom.</div><div class="n">${num(a.avgHr)}</div></div>
+          <div class="tile"><div class="l">FC máx.</div><div class="n">${num(a.maxHr)}</div></div>
+          <div class="tile"><div class="l">Carga</div><div class="n">${num(a.load,1)}</div></div>
+          <div class="tile"><div class="l">BB</div><div class="n">${a.bbImpact != null ? a.bbImpact : "—"}</div></div></div>
+        ${a.aerobicTE != null ? `<div class="note">Efecto de entrenamiento: aeróbico ${num(a.aerobicTE,1)} · anaeróbico ${num(a.anaerobicTE,1)}${a.teLabel ? " · " + esc(a.teLabel.replace(/_/g," ").toLowerCase()) : ""}</div>` : ""}
+        ${a.sets ? `<div class="note">${a.sets} series · ${a.reps||0} repeticiones</div>` : ""}
+        <div class="zbar">${a.zones.map((z,k) => `<div style="width:${z/zt*100}%;background:${ZCOL[k]}"></div>`).join("")}</div>
+        <div class="legend" style="margin-top:8px">${a.zones.map((z,k) => z > 0 ? `<span><i style="background:${ZCOL[k]}"></i>Z${k+1} ${hm(z)}</span>` : "").join("")}</div>
+      </div></div>`;
+  }).join("");
+  return `<div class="card"><h2>Entrenamientos <b>${d.activities.length} recientes</b></h2>${items}
+    ${zones ? `<div class="note">Tus zonas de FC: Z1 ${zones[0]}+ · Z2 ${zones[1]}+ · Z3 ${zones[2]}+ · Z4 ${zones[3]}+ · Z5 ${zones[4]}+ (máx ${zones[5]})</div>` : ""}</div>`;
+}
+
+function render(){
+  $("dateLbl").textContent = fmtDay(date);
+  $("next").style.visibility = date >= todayS ? "hidden" : "visible";
+  const d = data;
+  const r = d.recovery.score, s = d.sleep;
+  $("root").innerHTML = `
+    <div class="card"><div class="rings">
+      ${ring(r, 100, recColor(r), r == null ? "—" : r, "%", "Recuperación")}
+      ${ring(s && s.score, 100, "var(--sleep)", s && s.score != null ? s.score : "—", s ? hm(s.seconds) : "", "Sueño")}
+      ${ring(d.strain, 21, "var(--strain)", num(d.strain,1), "de 21", "Esfuerzo")}
+    </div><div class="verdict">${verdict(d)}</div></div>
+    ${recoveryCard(d)}${sleepCard(d)}${hrvCard(d)}${bodyBatteryCard(d)}${hrCard(d)}${dayCard(d)}${trendCard(d)}${actCard(d)}
+    <div class="note" style="text-align:center">Datos de Garmin Connect · el esfuerzo y la recuperación son estimaciones propias</div>`;
+  document.querySelectorAll(".act").forEach(a => a.onclick = () => a.classList.toggle("open"));
+}
+
+async function load(){
+  const my = ++seq;
+  $("dateLbl").textContent = fmtDay(date);
+  $("next").style.visibility = date >= todayS ? "hidden" : "visible";
+  $("root").innerHTML = '<div class="state"><div class="spinner"></div>Cargando datos de Garmin…</div>';
+  try{
+    const resp = await fetch("/api/garmin?date=" + date, {headers: {"x-nt-pin": localStorage.getItem("nt_pin") || ""}});
+    if(my !== seq) return;
+    if(resp.status === 401) throw new Error("Necesitas el PIN de acceso: ábrelo primero desde NuTracker (pantalla principal) y vuelve.");
+    const j = await resp.json().catch(() => ({}));
+    if(!resp.ok) throw new Error(j.error || ("Error " + resp.status));
+    data = j; render();
+  }catch(e){
+    if(my !== seq) return;
+    $("root").innerHTML = '<div class="err">⚠️ ' + esc(e.message || e) + '</div><div class="state"><a class="iconbtn" style="width:auto;padding:0 18px;display:inline-flex" href="/">Volver</a></div>';
+  }
+}
+$("prev").onclick = () => { date = shift(date, -1); load(); };
+$("next").onclick = () => { if(date < todayS){ date = shift(date, 1); load(); } };
+$("btnReload").onclick = load;
+load();
+})();
+</script>
+</body>
+</html>
