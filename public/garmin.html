@@ -180,9 +180,10 @@
     position:sticky; top:0; z-index:20; margin:-20px -16px 14px; padding:14px 16px 10px;
     background:linear-gradient(180deg,rgba(7,10,18,.92),rgba(7,10,18,.6)); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
   }
-  .top h1{
+  .top h1 .gt{
     background:linear-gradient(90deg,#fff,#a7f3e6 60%,#c4b5fd); -webkit-background-clip:text; background-clip:text; color:transparent;
   }
+  .top h1 .em{font-size:19px;}
   .iconbtn{transition:transform .15s, border-color .2s, box-shadow .2s;}
   .iconbtn:hover{border-color:rgba(94,234,212,.5); box-shadow:0 0 18px -4px rgba(94,234,212,.5);}
   .datebar .lbl{font-size:16px; letter-spacing:-.3px;}
@@ -296,7 +297,7 @@
 <header class="topwrap">
   <div class="top">
     <a class="iconbtn" href="/?home=1" title="Volver a NuTracker">‹</a>
-    <h1 style="flex:1;margin-left:12px">⌚ Panel Garmin<small id="who">Nico</small></h1>
+    <h1 style="flex:1;margin-left:12px"><span class="em">⌚</span> <span class="gt">Panel Garmin</span><small id="who">Nico</small></h1>
     <button class="iconbtn" id="btnReload" title="Actualizar">⟳</button>
   </div>
   <nav class="nav" id="nav"></nav>
@@ -717,12 +718,16 @@ function bindWeekly(){
 }
 
 /* ---------- clima de hoy ---------- */
-let wx = null, wxAt = 0;
+let wx = null, wxAt = 0, wxErr = null;
 const wxClass = icon => /☀|🌤|🌙/.test(icon) ? "clear" : /🌧|⛈|🌦|🌨/.test(icon) ? "rain" : "cloud";
 const uvTxt = v => v >= 11 ? "extremo" : v >= 8 ? "muy alto" : v >= 6 ? "alto" : v >= 3 ? "moderado" : "bajo";
 async function loadWeather(){
   if(!(wx && Date.now() - wxAt < 600000)){
-    try{ const r = await fetch("/api/weather", {headers: hdr()}); if(r.ok){ wx = await r.json(); wxAt = Date.now(); } }catch(e){}
+    try{
+      const r = await fetch("/api/weather", {headers: hdr()});
+      if(r.ok){ wx = await r.json(); wxAt = Date.now(); wxErr = null; }
+      else wxErr = r.status === 401 ? "Ingresa el PIN en NuTracker y vuelve." : ((await r.json().catch(() => ({}))).error || ("Error " + r.status));
+    }catch(e){ wxErr = "Sin conexión."; }
   }
   drawWeather();
 }
@@ -731,6 +736,7 @@ function drawWeather(){
   const show = wx && date === todayS;
   if(chip){ if(show){ chip.textContent = wx.now.icon + " " + Math.round(wx.now.temp) + "°"; chip.style.display = "flex"; } else chip.style.display = "none"; }
   if(!slot) return;
+  if(!wx && date === todayS && wxErr){ slot.innerHTML = `<div class="card"><h2>Clima</h2><div class="note" style="margin:0">No se pudo cargar el clima: ${esc(wxErr)}</div></div>`; return; }
   if(!show){ slot.innerHTML = ""; return; }
   const n = wx.now, t = wx.today, b = wx.best;
   const hrs = wx.hours.filter(h => h.h >= wx.nowHour).slice(0, 16);

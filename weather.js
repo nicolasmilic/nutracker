@@ -4,6 +4,7 @@
  * Se puede cambiar con WEATHER_LAT / WEATHER_LON / WEATHER_PLACE.
  */
 "use strict";
+const https = require("https");
 
 const LAT = process.env.WEATHER_LAT || "-33.35";
 const LON = process.env.WEATHER_LON || "-70.52";
@@ -13,10 +14,20 @@ const TTL = 20 * 60 * 1000;
 
 let cache = null;
 
-async function getJson(url) {
-  const r = await fetch(url, { signal: AbortSignal.timeout(12000) });
-  if (!r.ok) throw new Error("Open-Meteo respondió " + r.status);
-  return r.json();
+/* https nativo (no depende de la versión de Node, a diferencia de fetch) */
+function getJson(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { "user-agent": "NuTracker/1.0", accept: "application/json" } }, resp => {
+      let d = "";
+      resp.on("data", c => d += c);
+      resp.on("end", () => {
+        if (resp.statusCode !== 200) return reject(new Error("Open-Meteo respondió " + resp.statusCode));
+        try { resolve(JSON.parse(d)); } catch (e) { reject(new Error("Respuesta inválida de Open-Meteo")); }
+      });
+    });
+    req.on("error", e => reject(new Error("No se pudo contactar a Open-Meteo: " + e.message)));
+    req.setTimeout(12000, () => req.destroy(new Error("Open-Meteo tardó demasiado")));
+  });
 }
 
 /* código WMO → [emoji, descripción] */
