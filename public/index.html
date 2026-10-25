@@ -821,6 +821,7 @@ async function sync(){
     if(!state.profiles[pid]) pid = "p1";
     persistLocal();
     setOnline(true);
+    goGarminOnLaunch();
     render();
   }catch(e){
     setOnline(false);
@@ -1646,6 +1647,7 @@ function renderWho(){
     localStorage.setItem("nt_pid", pid);
     close("ovWho");
     render();
+    if(pid === "p1" && state.hasGarmin && !MOCK) location.replace("/garmin.html");
   });
 }
 
@@ -1653,6 +1655,14 @@ function renderWho(){
 if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
   navigator.serviceWorker.register("/sw.js").catch(() => {});
 }
+/* Nico abre la app directo en su panel Garmin (el botón ‹ del panel vuelve con ?home=1) */
+let launchChecked = new URLSearchParams(location.search).has("home");
+function goGarminOnLaunch(){
+  if(launchChecked || MOCK) return;
+  if(pid === "p1" && state.hasGarmin && localStorage.getItem("nt_pid")){ launchChecked = true; location.replace("/garmin.html"); }
+  else if(localStorage.getItem("nt_pid") && state.hasGarmin !== undefined && navigator.onLine) launchChecked = true;
+}
+goGarminOnLaunch();
 render();
 sync();
 if(!localStorage.getItem("nt_pid")){ open("ovWho"); renderWho(); }

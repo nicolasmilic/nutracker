@@ -125,7 +125,7 @@
 <body>
 
 <div class="top">
-  <a class="iconbtn" href="/" title="Volver a NuTracker">‹</a>
+  <a class="iconbtn" href="/?home=1" title="Volver a NuTracker">‹</a>
   <h1 style="flex:1;margin-left:12px">⌚ Panel Garmin<small id="who">Nico</small></h1>
   <button class="iconbtn" id="btnReload" title="Actualizar">⟳</button>
 </div>
@@ -418,7 +418,7 @@ async function load(){
     data = j; render();
   }catch(e){
     if(my !== seq) return;
-    $("root").innerHTML = '<div class="err">⚠️ ' + esc(e.message || e) + '</div><div class="state"><a class="iconbtn" style="width:auto;padding:0 18px;display:inline-flex" href="/">Volver</a></div>';
+    $("root").innerHTML = '<div class="err">⚠️ ' + esc(e.message || e) + '</div><div class="state"><a class="iconbtn" style="width:auto;padding:0 18px;display:inline-flex" href="/?home=1">Volver</a></div>';
   }
 }
 $("prev").onclick = () => { date = shift(date, -1); load(); };
