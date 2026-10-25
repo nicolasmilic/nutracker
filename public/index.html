@@ -537,6 +537,18 @@
   .whobtn:nth-of-type(2) .av{background:linear-gradient(135deg,#9ac7ff,#5b9cf5); color:#06172e;}
   .whobtn:nth-of-type(3) .av{background:linear-gradient(135deg,#fbc4e2,#f472b6); color:#3a0a24;}
   ::-webkit-scrollbar{width:0; height:0;}
+
+  /* ===== chat en móvil: sigue al teclado, sin zoom de iOS ===== */
+  #ovChat{height:var(--vvh,100%); top:var(--vvt,0); bottom:auto; overscroll-behavior:contain;}
+  #ovChat .chatsheet{height:calc(var(--vvh,100vh) - 14px); max-height:calc(var(--vvh,100vh) - 14px); padding-bottom:max(14px, env(safe-area-inset-bottom));}
+  .chatbar{padding-bottom:2px;}
+  .chatbar textarea{font-size:16px !important; line-height:1.4; min-height:46px; max-height:120px; padding:11px 13px !important; -webkit-appearance:none; appearance:none; touch-action:manipulation;}
+  .chatbar .iconbtn{width:48px; height:48px; border-radius:50%; font-size:19px; flex-shrink:0;}
+  #chatSend{background:linear-gradient(135deg,#2dd4bf,#0ea5a4); border:none; color:#021c1a; box-shadow:0 8px 22px -8px rgba(45,212,191,.7);}
+  .chatlog{-webkit-overflow-scrolling:touch; overscroll-behavior:contain; scroll-behavior:smooth;}
+  .sheet input, .sheet textarea{font-size:16px;}
+  body.noscroll{overflow:hidden; position:fixed; width:100%;}
+  @media (max-width:480px){ .bub{font-size:15px;} #chatLog .linkbtn{font-size:14px;} }
 </style>
 </head>
 <body>
@@ -628,7 +640,7 @@
     <div class="chatlog" id="chatLog"></div>
     <div class="chatbar">
       <button class="iconbtn" id="chatMic" title="Hablar">🎤</button>
-      <textarea id="chatInput" rows="1" placeholder="Ej: al desayuno me comí 2 huevos y un pan…"></textarea>
+      <textarea id="chatInput" rows="1" enterkeyhint="send" autocapitalize="sentences" autocomplete="off" spellcheck="true" placeholder="Cuéntame qué comiste…"></textarea>
       <button class="iconbtn" id="chatSend" title="Enviar">➤</button>
     </div>
   </div>
@@ -1665,7 +1677,23 @@ $("chatMic").onclick = () => {
 $("chatSend").onclick = sendChat;
 $("chatInput").addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendChat(); } });
 $("chatInput").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = Math.min(110, e.target.scrollHeight) + "px"; });
-$("btnChat").onclick = () => { renderChat(); open("ovChat"); };
+/* el chat se ajusta al área visible: el teclado ya no tapa la caja de texto */
+const vv = window.visualViewport;
+function fitChat(){
+  if(!vv) return;
+  const root = document.documentElement.style;
+  root.setProperty("--vvh", vv.height + "px");
+  root.setProperty("--vvt", vv.offsetTop + "px");
+  const log = $("chatLog");
+  if(log && $("ovChat").classList.contains("open")) log.scrollTop = log.scrollHeight;
+}
+if(vv){ vv.addEventListener("resize", fitChat); vv.addEventListener("scroll", fitChat); }
+$("chatInput").addEventListener("focus", () => { setTimeout(() => { fitChat(); $("chatLog").scrollTop = $("chatLog").scrollHeight; window.scrollTo(0, 0); }, 250); });
+// si escribes a mano mientras dictas, el dictado se detiene para no pisar tu texto
+$("chatInput").addEventListener("input", e => { if(e.isTrusted && micOn) stopMic(); });
+$("btnChat").onclick = () => { renderChat(); open("ovChat"); document.body.classList.add("noscroll"); fitChat(); };
+document.querySelectorAll('[data-close="ovChat"]').forEach(b => b.addEventListener("click", () => { document.body.classList.remove("noscroll"); stopMic(); }));
+$("ovChat").addEventListener("click", e => { if(e.target === $("ovChat")){ document.body.classList.remove("noscroll"); stopMic(); } });
 
 /* ================= selector de perfil (primera vez en el dispositivo) ================= */
 function renderWho(){

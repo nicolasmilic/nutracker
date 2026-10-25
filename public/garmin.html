@@ -243,15 +243,64 @@
   .askbar input{background:rgba(6,9,16,.65);}
   .state .spinner{box-shadow:0 0 24px rgba(94,234,212,.4);}
   @media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important;} }
+  /* =============== rediseño 2: saludo, resumen, secciones, clima =============== */
+  .topwrap{position:sticky; top:0; z-index:20; margin:-20px -16px 12px; padding:14px 16px 8px;
+    background:linear-gradient(180deg,rgba(7,10,18,.95),rgba(7,10,18,.7)); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    border-bottom:1px solid rgba(255,255,255,.05);}
+  .topwrap .top{position:static; margin:0 0 10px; padding:0; background:none; backdrop-filter:none; -webkit-backdrop-filter:none;}
+  .nav{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px;}
+  .nav::-webkit-scrollbar{display:none;}
+  .nav button{flex-shrink:0; background:rgba(255,255,255,.05); border:1px solid var(--border); color:var(--muted); border-radius:99px; padding:7px 14px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s;}
+  .nav button.on{background:linear-gradient(135deg,rgba(45,212,191,.28),rgba(167,139,250,.22)); color:#fff; border-color:rgba(94,234,212,.5); box-shadow:0 0 16px -4px rgba(94,234,212,.55);}
+  .sec{scroll-margin-top:120px; display:flex; align-items:center; gap:10px; margin:26px 2px 12px; font-size:13px; font-weight:800; letter-spacing:1.6px; text-transform:uppercase; color:#cbd5e1;}
+  .sec:first-child{margin-top:4px;}
+  .sec i{flex:1; height:1px; background:linear-gradient(90deg,rgba(255,255,255,.18),transparent);}
+  .sec span{font-size:18px; filter:drop-shadow(0 0 8px rgba(94,234,212,.5));}
+
+  .card.hero{background:radial-gradient(300px 190px at 50% -10px, var(--tint,rgba(94,234,212,.16)), transparent 72%), linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03) 70%);}
+  .greet{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 4px 16px;}
+  .greet small{display:block; font-size:11.5px; color:var(--muted); font-weight:600;}
+  .greet b{display:block; font-size:21px; font-weight:800; letter-spacing:-.6px;}
+  .wchip{display:none; align-items:center; gap:6px; background:rgba(255,255,255,.07); border:1px solid var(--border); border-radius:99px; padding:7px 13px; font-size:14px; font-weight:700; white-space:nowrap;}
+  .strip{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:16px;}
+  .strip div{background:rgba(6,9,16,.5); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:9px 4px; text-align:center;}
+  .strip b{display:block; font-size:16px; font-weight:800; letter-spacing:-.4px;}
+  .strip small{display:block; font-size:9.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); font-weight:700; margin-top:2px;}
+
+  /* clima */
+  .card.wx{--cc:rgba(251,191,36,.9); background:linear-gradient(160deg,var(--w1,rgba(96,165,250,.2)),var(--w2,rgba(255,255,255,.03)) 75%);}
+  .card.wx.clear{--w1:rgba(251,191,36,.2); --cc:rgba(251,191,36,.9);}
+  .card.wx.cloud{--w1:rgba(148,163,184,.2); --cc:rgba(148,163,184,.9);}
+  .card.wx.rain{--w1:rgba(59,130,246,.28); --cc:rgba(96,165,250,.9);}
+  .wx-main{display:flex; align-items:center; gap:14px;}
+  .wx-ic{font-size:52px; line-height:1; filter:drop-shadow(0 6px 14px rgba(0,0,0,.4));}
+  .wx-t{font-size:44px; font-weight:800; letter-spacing:-2px; line-height:1;}
+  .wx-d{font-size:12.5px; color:var(--muted); margin-top:4px;}
+  .wx-hl{margin-left:auto; text-align:right; font-size:14px; font-weight:700; line-height:1.6;}
+  .wx-hl span{color:var(--muted); font-weight:600; font-size:11px; display:block;}
+  .hours{display:flex; gap:6px; overflow-x:auto; margin:16px -4px 0; padding:2px 4px 6px; scrollbar-width:none;}
+  .hours::-webkit-scrollbar{display:none;}
+  .hours div{flex:0 0 54px; background:rgba(6,9,16,.4); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:8px 0; text-align:center;}
+  .hours small{display:block; font-size:10px; color:var(--muted); font-weight:700;}
+  .hours span{display:block; font-size:20px; margin:3px 0;}
+  .hours b{font-size:14px; font-weight:800;}
+  .hours i{display:block; font-style:normal; font-size:9.5px; color:#7cb4ff; font-weight:700; margin-top:1px; min-height:11px;}
+  .wxchips{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+  .wxchips span{background:rgba(6,9,16,.5); border:1px solid var(--border); border-radius:99px; padding:5px 11px; font-size:11.5px; font-weight:600; color:#cbd5e1;}
+  .wxbest{margin-top:14px; padding:12px 14px; border-radius:16px; background:rgba(45,212,191,.1); border:1px solid rgba(94,234,212,.3); font-size:13.5px; line-height:1.5;}
+  .wxbest b{color:var(--accent);}
 </style>
 </head>
 <body>
 
-<div class="top">
-  <a class="iconbtn" href="/?home=1" title="Volver a NuTracker">‹</a>
-  <h1 style="flex:1;margin-left:12px">⌚ Panel Garmin<small id="who">Nico</small></h1>
-  <button class="iconbtn" id="btnReload" title="Actualizar">⟳</button>
-</div>
+<header class="topwrap">
+  <div class="top">
+    <a class="iconbtn" href="/?home=1" title="Volver a NuTracker">‹</a>
+    <h1 style="flex:1;margin-left:12px">⌚ Panel Garmin<small id="who">Nico</small></h1>
+    <button class="iconbtn" id="btnReload" title="Actualizar">⟳</button>
+  </div>
+  <nav class="nav" id="nav"></nav>
+</header>
 <div class="datebar">
   <button class="iconbtn" id="prev">‹</button>
   <div class="lbl" id="dateLbl"></div>
@@ -667,23 +716,87 @@ function bindWeekly(){
   };
 }
 
+/* ---------- clima de hoy ---------- */
+let wx = null, wxAt = 0;
+const wxClass = icon => /☀|🌤|🌙/.test(icon) ? "clear" : /🌧|⛈|🌦|🌨/.test(icon) ? "rain" : "cloud";
+const uvTxt = v => v >= 11 ? "extremo" : v >= 8 ? "muy alto" : v >= 6 ? "alto" : v >= 3 ? "moderado" : "bajo";
+async function loadWeather(){
+  if(!(wx && Date.now() - wxAt < 600000)){
+    try{ const r = await fetch("/api/weather", {headers: hdr()}); if(r.ok){ wx = await r.json(); wxAt = Date.now(); } }catch(e){}
+  }
+  drawWeather();
+}
+function drawWeather(){
+  const chip = $("wchip"), slot = $("wxslot");
+  const show = wx && date === todayS;
+  if(chip){ if(show){ chip.textContent = wx.now.icon + " " + Math.round(wx.now.temp) + "°"; chip.style.display = "flex"; } else chip.style.display = "none"; }
+  if(!slot) return;
+  if(!show){ slot.innerHTML = ""; return; }
+  const n = wx.now, t = wx.today, b = wx.best;
+  const hrs = wx.hours.filter(h => h.h >= wx.nowHour).slice(0, 16);
+  slot.innerHTML = `<div class="card wx ${wxClass(n.icon)}"><h2>Clima · ${esc(wx.place)} <b>${esc(n.text)}</b></h2>
+    <div class="wx-main"><div class="wx-ic">${n.icon}</div>
+      <div><div class="wx-t">${Math.round(n.temp)}°</div><div class="wx-d">Sensación ${Math.round(n.feels)}° · humedad ${n.humidity}%</div></div>
+      <div class="wx-hl">↑ ${Math.round(t.max)}° <span>máxima</span>↓ ${Math.round(t.min)}° <span>mínima</span></div></div>
+    <div class="hours">${hrs.map(h => `<div><small>${h.h}h</small><span>${h.icon}</span><b>${Math.round(h.temp)}°</b><i>${h.rain >= 20 ? "💧" + h.rain + "%" : ""}</i></div>`).join("")}</div>
+    <div class="wxchips"><span>💧 Lluvia ${t.rain}%</span><span>☀️ UV ${num(t.uv,1)} · ${uvTxt(t.uv)}</span><span>💨 ${Math.round(n.wind)} km/h</span>
+      <span>🌅 ${esc(t.sunrise)}</span><span>🌇 ${esc(t.sunset)}</span>${wx.aqi != null ? `<span>🌬️ Aire ${esc((wx.aqiLabel||"").toLowerCase())} (${wx.aqi})</span>` : ""}</div>
+    ${b ? `<div class="wxbest">🏃 Mejor ventana para entrenar afuera: <b>${b.from}:00–${b.to}:00</b> · ${b.temp}°${b.rain > 30 ? " · posible lluvia" : " · sin lluvia"}${b.uv >= 6 ? " · usa bloqueador" : ""}</div>` : `<div class="wxbest">🏠 Ya pasó la mejor hora para salir hoy: mejor entrena bajo techo.</div>`}</div>`;
+}
+
+/* ---------- saludo, resumen rápido y navegación ---------- */
+function greetCard(d){
+  const hr = new Date().getHours();
+  const hello = hr < 6 ? "Buenas noches" : hr < 12 ? "Buenos días" : hr < 20 ? "Buenas tardes" : "Buenas noches";
+  const [y,m,dd] = date.split("-").map(Number);
+  const long = new Date(y, m-1, dd).toLocaleDateString("es-CL", {weekday:"long", day:"numeric", month:"long"});
+  return `<div class="greet"><div><small>${esc(long.charAt(0).toUpperCase() + long.slice(1))}</small><b>${date === todayS ? hello + ", Nico" : "Resumen del día"}</b></div><div class="wchip" id="wchip"></div></div>`;
+}
+function stripHtml(d){
+  const x = d.day, h = d.hrv, b = d.bodyBattery;
+  const it = (v, l) => `<div><b>${v}</b><small>${l}</small></div>`;
+  return `<div class="strip">${it(h.last != null ? h.last : "—", "HRV ms")}${it(d.heartRate.resting != null ? d.heartRate.resting : "—", "FC reposo")}${it(b.now != null ? b.now : "—", "Battery")}${it(x.steps != null ? (x.steps >= 1000 ? (x.steps/1000).toFixed(1) + "k" : x.steps) : "—", "Pasos")}</div>`;
+}
+const SECS = [["s-hoy","☀️","Hoy"],["s-cuerpo","❤️","Cuerpo"],["s-habitos","🧠","Hábitos"],["s-tend","📈","Tendencias"],["s-entreno","🏋️","Entrenos"]];
+const sec = (id, ic, nm) => `<div class="sec" id="${id}"><span>${ic}</span>${nm}<i></i></div>`;
+function buildNav(){
+  $("nav").innerHTML = SECS.map(([id,ic,nm], i) => `<button data-s="${id}" class="${i === 0 ? "on" : ""}">${ic} ${nm}</button>`).join("");
+  $("nav").querySelectorAll("button").forEach(b => b.onclick = () => { const el = $(b.dataset.s); if(el) el.scrollIntoView({behavior:"smooth", block:"start"}); });
+}
+let spyBound = false;
+function bindSpy(){
+  if(spyBound) return; spyBound = true;
+  window.addEventListener("scroll", () => {
+    let cur = SECS[0][0];
+    SECS.forEach(([id]) => { const el = $(id); if(el && el.getBoundingClientRect().top < 160) cur = id; });
+    document.querySelectorAll("#nav button").forEach(b => {
+      const on = b.dataset.s === cur;
+      if(on && !b.classList.contains("on")) b.scrollIntoView({inline:"center", block:"nearest", behavior:"smooth"});
+      b.classList.toggle("on", on);
+    });
+  }, {passive:true});
+}
+
 function render(){
   $("dateLbl").textContent = fmtDay(date);
   $("next").style.visibility = date >= todayS ? "hidden" : "visible";
   const d = data;
   const r = d.recovery.score, s = d.sleep;
   $("root").innerHTML = `
-    <div class="card hero"><div class="rings">
+    <div id="s-hoy" style="scroll-margin-top:120px"></div>
+    <div class="card hero" style="--tint:${r == null ? "rgba(94,234,212,.16)" : r >= 67 ? "rgba(74,222,128,.2)" : r >= 34 ? "rgba(252,211,77,.18)" : "rgba(248,113,113,.2)"}">${greetCard(d)}<div class="rings">
       ${ring(r, 100, recColor(r), r == null ? "—" : r, "%", "Recuperación")}
       ${ring(s && s.score, 100, "var(--sleep)", s && s.score != null ? s.score : "—", s ? hm(s.seconds) : "", "Sueño")}
       ${ring(d.strain, 21, "var(--strain)", num(d.strain,1), "de 21", "Esfuerzo")}
-    </div><div class="verdict">${verdict(d)}</div></div>
-    ${alertsCard(d)}${planCard(d)}${coachCard()}
-    ${recoveryCard(d)}${sleepCard(d)}${hrvCard(d)}${bodyBatteryCard(d)}${hrCard(d)}${dayCard(d)}
-    ${journalCard(d)}${insightsCard(d)}${achievementsCard(d)}${weeklyCard()}${trendCard(d)}${actCard(d)}
+    </div>${stripHtml(d)}<div class="verdict">${verdict(d)}</div></div>
+    ${alertsCard(d)}<div id="wxslot"></div>${planCard(d)}${coachCard()}
+    ${sec("s-cuerpo","❤️","Cuerpo")}${recoveryCard(d)}${sleepCard(d)}${hrvCard(d)}${bodyBatteryCard(d)}${hrCard(d)}${dayCard(d)}
+    ${sec("s-habitos","🧠","Hábitos y logros")}${journalCard(d)}${insightsCard(d)}${achievementsCard(d)}${weeklyCard()}
+    ${sec("s-tend","📈","Tendencias")}${trendCard(d)}
+    ${sec("s-entreno","🏋️","Entrenamientos")}${actCard(d)}
     <div class="note" style="text-align:center">Datos de Garmin Connect · el esfuerzo y la recuperación son estimaciones propias</div>`;
   document.querySelectorAll(".act").forEach(a => a.onclick = () => a.classList.toggle("open"));
-  bindCoach(); bindJournal(d); drawHeat(d); bindWeekly();
+  bindCoach(); bindJournal(d); drawHeat(d); bindWeekly(); drawWeather(); bindSpy();
   // los anillos se llenan con animación al aparecer
   requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll(".ringbox .prog").forEach(c => c.setAttribute("stroke-dashoffset", c.dataset.off))));
 }
@@ -706,10 +819,12 @@ async function load(){
     $("root").innerHTML = '<div class="err">⚠️ ' + esc(e.message || e) + '</div><div class="state"><a class="iconbtn" style="width:auto;padding:0 18px;display:inline-flex" href="/?home=1">Volver</a></div>';
   }
 }
+buildNav();
 $("prev").onclick = () => { date = shift(date, -1); load(); };
 $("next").onclick = () => { if(date < todayS){ date = shift(date, 1); load(); } };
 $("btnReload").onclick = load;
 load();
+loadWeather();
 })();
 </script>
 </body>

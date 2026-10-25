@@ -22,6 +22,7 @@ const path = require("path");
 const os = require("os");
 const garmin = require("./garmin");
 const coach = require("./coach");
+const weather = require("./weather");
 
 const PORT = process.env.PORT || 3210;
 const ROOT = __dirname;
@@ -318,10 +319,10 @@ function coachAsk(body, cb) {
   const msgs = (Array.isArray(body.messages) ? body.messages : []).slice(-8);
   if (!msgs.length) return cb({ status: 400, error: "Falta la pregunta." });
   const date = validDate(body.date), prof = state.profiles.p1;
-  garmin.getDay(date).then(g => {
+  Promise.all([garmin.getDay(date), weather.summaryText()]).then(([g, wx]) => {
     const ex = coach.analyze(g, prof);
     const transcript = msgs.map(m => (m.role === "user" ? "Nico: " : "Coach: ") + String(m.text || "").slice(0, 600)).join("\n");
-    const prompt = COACH_PROMPT + "\n\n" + coach.contextText(g, prof, ex) + "\n\nConversación:\n" + transcript + "\nCoach:";
+    const prompt = COACH_PROMPT + "\n\n" + coach.contextText(g, prof, ex) + (wx && date === todayCL() ? "\n- " + wx : "") + "\n\nConversación:\n" + transcript + "\nCoach:";
     askAI({ prompt, maxTokens: 900, fast: true }, (err, ok) => err ? cb(err) : cb(null, { text: (ok.text || "").trim() }));
   }).catch(e => cb({ status: 502, error: e.message || "No se pudo consultar Garmin." }));
 }
@@ -449,6 +450,11 @@ const server = http.createServer((req, res) => {
         : garmin.getDay(date).then(g => Object.assign(g, coach.analyze(g, state.profiles.p1)));
       return job.then(d => sendJSON(res, 200, d))
         .catch(e => sendJSON(res, 502, { error: e.message || "No se pudo consultar Garmin." }));
+    }
+    if (p === "/api/weather" && req.method === "GET") {
+      return weather.getWeather()
+        .then(w => sendJSON(res, 200, w))
+        .catch(e => sendJSON(res, 502, { error: "No se pudo obtener el clima: " + (e.message || e) }));
     }
     if (p === "/api/coach-ask" && req.method === "POST") {
       return readBody(req, res, 64 * 1024, body => coachAsk(body, (err, ok) => {
