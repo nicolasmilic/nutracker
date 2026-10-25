@@ -8,7 +8,8 @@
 const https = require("https");
 
 const HOST = "personal.connectapi.garmin.com";
-const TRIM_DAYS = 14;          // días de tendencia
+const HIST_DAYS = 56;          // historial (8 semanas): tendencias, rachas, correlaciones
+const CHUNK = 28;              // Garmin podría limitar los rangos: se piden en tramos
 const CACHE_MS = 5 * 60 * 1000;
 
 const apiKey = () => (process.env.GARMIN_API_KEY || "").trim();
@@ -63,6 +64,28 @@ const addDays = (ds, n) => { const d = new Date(ds + "T12:00:00Z"); d.setUTCDate
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const avg = a => { a = a.filter(v => v != null && !isNaN(v)); return a.length ? a.reduce((s, v) => s + v, 0) / a.length : null; };
 
+/* pide un endpoint por rango [from,to] en tramos; si un tramo falla, lo parte a la mitad una vez */
+async function ranged(pathFn, from, to, merge, size) {
+  size = size || CHUNK;
+  const spans = [];
+  for (let a = from; a <= to; a = addDays(a, size)) spans.push([a, addDays(a, size - 1) > to ? to : addDays(a, size - 1)]);
+  const parts = await Promise.all(spans.map(async ([a, b]) => {
+    let r = await safe(pathFn(a, b));
+    if (r == null && size > 7) {
+      const mid = addDays(a, Math.floor(size / 2) - 1);
+      if (mid >= a && mid < b) {
+        const [x, y] = await Promise.all([safe(pathFn(a, mid)), safe(pathFn(addDays(mid, 1), b))]);
+        return merge(x, y);
+      }
+    }
+    return r;
+  }));
+  return parts.reduce((acc, r) => merge(acc, r), null);
+}
+const mergeArr = (a, b) => (Array.isArray(a) || Array.isArray(b)) ? [].concat(Array.isArray(a) ? a : [], Array.isArray(b) ? b : []) : null;
+const mergeDs = (a, b) => (a || b) ? { data: [].concat((a && a.data) || [], (b && b.data) || []) } : null;
+const mergeHrv = (a, b) => (a || b) ? { hrvSummaries: [].concat((a && a.hrvSummaries) || [], (b && b.hrvSummaries) || []) } : null;
+
 /* ---------- puntajes (aproximaciones; Garmin no da recuperación/esfuerzo tipo Whoop) ---------- */
 function hrvScore(v, base) {
   if (v == null || !base) return null;
@@ -89,17 +112,17 @@ function strain(mod, vig) {
 
 /* ---------- armado del día ---------- */
 async function getDay(date) {
-  const from = addDays(date, -(TRIM_DAYS - 1));
+  const from = addDays(date, -(HIST_DAYS - 1));
   const [summary, sleep, hrv, hrvRange, bb, hr, ds, sleepSum, acts, zones] = await Promise.all([
     safe(`/usersummary-service/usersummary/daily?calendarDate=${date}`),
     safe(`/sleep-service/sleep/dailySleep?date=${date}`),
     safe(`/hrv-service/hrv/${date}`),
-    safe(`/hrv-service/hrv/daily/${from}/${date}`),
-    safe(`/wellness-service/wellness/bodyBattery/reports/daily?startDate=${from}&endDate=${date}`),
+    ranged((a, b) => `/hrv-service/hrv/daily/${a}/${b}`, from, date, mergeHrv),
+    ranged((a, b) => `/wellness-service/wellness/bodyBattery/reports/daily?startDate=${a}&endDate=${b}`, from, date, mergeArr),
     safe(`/wellness-service/wellness/dailyHeartRate?date=${date}`),
-    safe(`/usersummary-service/v2/dailysummaries?startDate=${from}&endDate=${date}`),
-    safe(`/sleep-service/sleep/dailySleepSummariesByDate?startDate=${from}&endDate=${date}`),
-    safe(`/activitylist-service/activities/search/activities?start=0&limit=30`),
+    ranged((a, b) => `/usersummary-service/v2/dailysummaries?startDate=${a}&endDate=${b}`, from, date, mergeDs),
+    ranged((a, b) => `/sleep-service/sleep/dailySleepSummariesByDate?startDate=${a}&endDate=${b}`, from, date, mergeArr),
+    safe(`/activitylist-service/activities/search/activities?start=0&limit=40`),
     safe(`/biometric-service/heartRateZones/v2`)
   ]);
   if (!summary && !sleep && !ds) throw new Error("Garmin no devolvió datos para esa fecha.");
@@ -115,7 +138,7 @@ async function getDay(date) {
 
   /* serie de tendencia: un punto por día */
   const days = [];
-  for (let i = TRIM_DAYS - 1; i >= 0; i--) {
+  for (let i = HIST_DAYS - 1; i >= 0; i--) {
     const d = addDays(date, -i);
     const s = dsBy[d] || {}, hv = hrvBy[d] || {}, sl = sleepBy[d] || {}, b = bbBy[d] || {};
     const slScore = sl.sleepScores && sl.sleepScores.overall ? sl.sleepScores.overall.value : null;
@@ -135,6 +158,10 @@ async function getDay(date) {
       sleepHours: sl.sleepTimeSeconds ? Math.round(sl.sleepTimeSeconds / 360) / 10 : null,
       hrv: hv.lastNightAvg != null ? hv.lastNightAvg : null,
       hrvWeekly: hv.weeklyAvg != null ? hv.weeklyAvg : null,
+      hrvLow: hv.baseline ? hv.baseline.balancedLow : null,
+      hrvHigh: hv.baseline ? hv.baseline.balancedUpper : null,
+      kcalActive: s.calories ? s.calories.burnedActive : null,
+      kcalTotal: s.calories ? s.calories.burnedTotal : null,
       rhr,
       steps: s.movement && s.movement.steps ? s.movement.steps.value : null,
       stepGoal: s.movement && s.movement.steps ? s.movement.steps.goal : null,
@@ -184,7 +211,7 @@ async function getDay(date) {
 
   /* actividades recientes */
   const z = Array.isArray(zones) && zones[0] ? zones[0] : null;
-  const activities = (Array.isArray(acts) ? acts : []).slice(0, 15).map(a => ({
+  const activities = (Array.isArray(acts) ? acts : []).slice(0, 40).map(a => ({
     id: a.activityId,
     name: a.activityName,
     type: a.activityType && a.activityType.typeKey,
@@ -234,4 +261,21 @@ async function getDay(date) {
   };
 }
 
-module.exports = { enabled, getDay };
+/* gasto de energía liviano (app principal): kcal activas de hoy vs. tu promedio de 14 días */
+async function getEnergy(date) {
+  const from = addDays(date, -14);
+  const [summary, ds] = await Promise.all([
+    safe(`/usersummary-service/usersummary/daily?calendarDate=${date}`),
+    ranged((a, b) => `/usersummary-service/v2/dailysummaries?startDate=${a}&endDate=${b}`, from, addDays(date, -1), mergeDs)
+  ]);
+  const prev = ((ds && ds.data) || []).filter(x => x.calories && x.calories.burnedActive != null).map(x => x.calories.burnedActive);
+  const a = avg(prev);
+  return {
+    date,
+    kcalActive: summary && summary.activeKilocalories != null ? Math.round(summary.activeKilocalories) : null,
+    avgActive: a != null ? Math.round(a) : null,
+    days: prev.length
+  };
+}
+
+module.exports = { enabled, getDay, getEnergy };

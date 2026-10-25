@@ -52,7 +52,7 @@
 
   /* hero */
   .rings{display:flex; justify-content:space-between; gap:8px;}
-  .ringbox{flex:1; text-align:center;}
+  .ringbox{flex:1 1 0; min-width:0; text-align:center;}
   .ringbox svg{width:100%; max-width:120px; height:auto; display:block; margin:0 auto; transform:rotate(-90deg);}
   .ringbox .track{fill:none; stroke:rgba(255,255,255,.08); stroke-width:9;}
   .ringbox .prog{fill:none; stroke-width:9; stroke-linecap:round; transition:stroke-dashoffset .8s cubic-bezier(.22,1,.36,1);}
@@ -60,7 +60,7 @@
   .ringwrap .num{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
   .ringwrap .num b{font-size:30px; font-weight:800; letter-spacing:-1px; line-height:1;}
   .ringwrap .num small{font-size:11px; color:var(--muted); font-weight:600; margin-top:2px;}
-  .ringbox .cap{font-size:11px; text-transform:uppercase; letter-spacing:1.1px; font-weight:700; margin-top:10px; color:var(--muted);}
+  .ringbox .cap{white-space:nowrap; font-size:10.5px; text-transform:uppercase; letter-spacing:1.1px; font-weight:700; margin-top:10px; color:var(--muted);}
   .verdict{margin-top:16px; padding:12px 14px; border-radius:16px; background:rgba(6,9,16,.45); border:1px solid var(--border); font-size:13.5px; line-height:1.55;}
   .verdict b{font-weight:700;}
 
@@ -77,13 +77,14 @@
   .part .t span:first-child{color:var(--muted);}
   .part .t b{font-weight:700;}
 
-  .tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
-  .tile{background:rgba(6,9,16,.45); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:11px 10px;}
+  .tiles{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;}
+  .tile{min-width:0; overflow:hidden; background:rgba(6,9,16,.45); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:11px 10px;}
   .tile .l{font-size:10px; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); font-weight:700;}
   .tile .n{font-size:20px; font-weight:800; margin-top:3px; letter-spacing:-.5px;}
   .tile .n small{font-size:11px; color:var(--muted); font-weight:600; margin-left:2px;}
-  .tiles.two{grid-template-columns:repeat(2,1fr);}
-  .tiles.four{grid-template-columns:repeat(4,1fr);}
+  .tiles.two{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .tiles.four{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .tiles.four .n{font-size:17px;}
 
   .stages{display:flex; height:14px; border-radius:99px; overflow:hidden; gap:2px; margin:6px 0 10px;}
   .stages div{height:100%;}
@@ -120,6 +121,52 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   .err{background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.3); color:#fca5a5; border-radius:16px; padding:14px; font-size:13.5px; line-height:1.6;}
   .note{font-size:11.5px; color:var(--muted); line-height:1.6; margin-top:10px;}
+
+  /* alertas, plan, coach */
+  .alert{border-radius:20px; padding:14px 16px; margin-bottom:14px; font-size:13.5px; line-height:1.55; border:1px solid;}
+  .alert b{display:block; margin-bottom:3px; font-size:14px;}
+  .alert.warn{background:rgba(252,211,77,.09); border-color:rgba(252,211,77,.35); color:#fde68a;}
+  .alert.danger{background:rgba(248,113,113,.1); border-color:rgba(248,113,113,.4); color:#fca5a5;}
+  .plan .ptitle{font-size:22px; font-weight:800; letter-spacing:-.5px;}
+  .plan .pdetail{font-size:14px; line-height:1.6; color:var(--text); margin-top:6px;}
+  .reasons{margin:12px 0 0 18px; font-size:12.5px; color:var(--muted); line-height:1.7;}
+  .coachlog{display:none; flex-direction:column; gap:9px; max-height:340px; overflow-y:auto; margin-bottom:12px;}
+  .bub{max-width:90%; padding:10px 13px; border-radius:18px; font-size:14px; line-height:1.55; white-space:pre-wrap; word-break:break-word;}
+  .bub.u{align-self:flex-end; background:linear-gradient(135deg,rgba(45,212,191,.25),rgba(14,165,164,.18)); border:1px solid rgba(94,234,212,.35); border-radius:18px 18px 6px 18px;}
+  .bub.a{align-self:flex-start; background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:18px 18px 18px 6px;}
+  .qchips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+  .qchip{background:rgba(6,9,16,.5); border:1px solid var(--border); color:var(--accent); border-radius:99px; padding:7px 12px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit;}
+  .askbar{display:flex; gap:8px;}
+  .askbar input{flex:1; background:var(--input); border:1px solid var(--border); color:var(--text); border-radius:14px; padding:12px; font-size:14px; outline:none; font-family:inherit;}
+  .askbar input:focus{border-color:var(--accent2);}
+  /* diario */
+  .tagrow{display:flex; flex-wrap:wrap; gap:8px;}
+  .tag{background:rgba(6,9,16,.5); border:1px solid var(--border); color:var(--muted); border-radius:99px; padding:9px 14px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; transition:all .15s;}
+  .tag.on{background:rgba(45,212,191,.15); border-color:var(--accent2); color:var(--accent); box-shadow:0 0 14px -4px rgba(45,212,191,.6);}
+  /* patrones */
+  .ins{display:flex; gap:12px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--border); font-size:13.5px; line-height:1.5;}
+  .ins:last-of-type{border-bottom:none;}
+  .ins .ic{font-size:22px; width:30px; text-align:center;}
+  .ins small{display:block; color:var(--muted); font-size:11px; margin-top:2px;}
+  .ins.good{--c:var(--green);} .ins.bad{--c:var(--red);}
+  .ins>div{border-left:3px solid var(--c); padding-left:10px;}
+  /* logros */
+  .badges{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+  .badge{background:rgba(6,9,16,.45); border:1px solid rgba(255,255,255,.06); border-radius:16px; padding:11px 4px; text-align:center; opacity:.5; filter:grayscale(.8);}
+  .badge .bi{font-size:24px;}
+  .badge b{display:block; font-size:10.5px; margin-top:4px; font-weight:700; line-height:1.2;}
+  .badge small{display:block; font-size:10px; color:var(--muted); margin-top:2px;}
+  .badge.got{opacity:1; filter:none; border-color:rgba(252,211,77,.4); background:rgba(252,211,77,.08); box-shadow:0 0 18px -6px rgba(252,211,77,.6);}
+  .hm-head{display:flex; justify-content:space-between; align-items:center; margin:18px 0 8px; font-size:12px; color:var(--muted); font-weight:600;}
+  .seg button{background:none; border:1px solid var(--border); color:var(--muted); padding:4px 9px; font-size:11px; font-weight:600; cursor:pointer; font-family:inherit; margin-left:-1px;}
+  .seg button:first-child{border-radius:99px 0 0 99px;} .seg button:last-child{border-radius:0 99px 99px 0;}
+  .seg button.on{background:rgba(45,212,191,.15); color:var(--accent); border-color:var(--accent2); position:relative;}
+  .heat{display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,1fr); gap:4px;}
+  .heat i{aspect-ratio:1; border-radius:5px; display:block;}
+  /* resumen */
+  .weekly{white-space:pre-wrap; font-size:14px; line-height:1.7;}
+  .btn{width:100%; margin-top:14px; border:none; border-radius:16px; padding:13px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; color:#021c1a; background:linear-gradient(135deg,#2dd4bf,#0ea5a4); box-shadow:0 10px 30px -10px rgba(45,212,191,.5);}
+  .btn:disabled{opacity:.6;}
 </style>
 </head>
 <body>
@@ -160,6 +207,7 @@ const hm = sec => { const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60
 const clock = ms => new Date(ms).toLocaleTimeString("es-CL",{hour:"2-digit", minute:"2-digit"});
 const num = (v, d) => v == null ? "—" : (d ? (Math.round(v*10**d)/10**d).toFixed(d) : Math.round(v).toLocaleString("es-CL"));
 
+const hdr = () => ({"content-type":"application/json", "x-nt-pin": localStorage.getItem("nt_pin") || ""});
 const recColor = v => v == null ? "var(--muted)" : v >= 67 ? "var(--green)" : v >= 34 ? "var(--yellow)" : "var(--red)";
 
 /* ---------- gráficos SVG ---------- */
@@ -346,7 +394,7 @@ function dayCard(d){
 }
 
 function trendCard(d){
-  const t = d.trend, lab = t.map(x => short(x.date));
+  const t = d.trend.slice(-14), lab = t.map(x => short(x.date));
   const last = k => { for(let i = t.length-1; i >= 0; i--) if(t[i][k] != null) return t[i][k]; return null; };
   const avg = k => { const v = t.map(x => x[k]).filter(v => v != null); return v.length ? v.reduce((a,b) => a+b, 0) / v.length : null; };
   const idx = i => i;
@@ -358,13 +406,15 @@ function trendCard(d){
     <h3>FC en reposo <span>prom. ${num(avg("rhr"),1)} lpm</span></h3>${line(t.map((x,i) => [i, x.rhr]), {color:"#f87171", dots:true, id:5, ticks:[[0,lab[0]],[Math.floor(t.length/2),lab[Math.floor(t.length/2)]],[t.length-1,lab[t.length-1]]]})}
     <h3>Pasos <span>prom. ${num(avg("steps"))}</span></h3>${bars(t.map(x => x.steps), {color:(v,i) => t[i].stepGoal && v >= t[i].stepGoal ? "#4ade80" : "#5eead4", labels:lab})}
     <h3>Estrés <span>prom. ${num(avg("stress"))}</span></h3>${bars(t.map(x => x.stress), {max:100, color:"#fb923c", labels:lab})}
+    <h3>Calorías: comiste vs gastaste <span>${num(avg("kcalIn"))} / ${num(avg("kcalTotal"))} kcal</span></h3>${bars(t.map(x => x.kcalIn), {max:Math.max(...t.map(x => x.kcalTotal||0), 1), color:(v,i) => t[i].kcalTotal && v > t[i].kcalTotal ? "#fb923c" : "#f9a8d4", labels:lab})}
+    <div class="note">Rosa: comiste menos de lo que gastaste · naranja: más. Solo cuenta los días con comidas registradas.</div>
   </div>`;
 }
 
 function actCard(d){
   if(!d.activities.length) return "";
   const zones = d.hrZones;
-  const items = d.activities.map((a, i) => {
+  const items = d.activities.slice(0, 15).map((a, i) => {
     const [ic, nm] = TYPE[a.type] || ["🏅", (a.type||"Actividad").replace(/_/g," ")];
     const when = a.start ? a.start.slice(0,10) : "", tm = a.start ? a.start.slice(11,16) : "";
     const zt = a.zones.reduce((s,v) => s+v, 0) || 1;
@@ -384,8 +434,161 @@ function actCard(d){
         <div class="legend" style="margin-top:8px">${a.zones.map((z,k) => z > 0 ? `<span><i style="background:${ZCOL[k]}"></i>Z${k+1} ${hm(z)}</span>` : "").join("")}</div>
       </div></div>`;
   }).join("");
-  return `<div class="card"><h2>Entrenamientos <b>${d.activities.length} recientes</b></h2>${items}
+  return `<div class="card"><h2>Entrenamientos <b>${Math.min(15, d.activities.length)} recientes</b></h2>${items}
     ${zones ? `<div class="note">Tus zonas de FC: Z1 ${zones[0]}+ · Z2 ${zones[1]}+ · Z3 ${zones[2]}+ · Z4 ${zones[3]}+ · Z5 ${zones[4]}+ (máx ${zones[5]})</div>` : ""}</div>`;
+}
+
+/* ---------- alertas, plan y coach ---------- */
+function alertsCard(d){
+  if(!d.alerts || !d.alerts.length) return "";
+  return d.alerts.map(a => `<div class="alert ${esc(a.level)}"><b>${a.level === "danger" ? "🚨" : "⚠️"} ${esc(a.title)}</b><div>${esc(a.text)}</div></div>`).join("");
+}
+
+function planCard(d){
+  const p = d.plan;
+  if(!p) return "";
+  return `<div class="card plan"><h2>Plan para hoy <b>esfuerzo ${p.target[0]}–${p.target[1]}</b></h2>
+    <div class="ptitle">${esc(p.title)}</div><div class="pdetail">${esc(p.detail)}</div>
+    <ul class="reasons">${p.reasons.map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
+}
+
+let coachMsgs = [], coachBusy = false;
+const COACH_Q = ["¿Qué entreno hoy?", "¿Cómo dormí y por qué?", "¿Qué como hoy para recuperarme?", "¿Estoy sobreentrenando?"];
+function coachCard(){
+  return `<div class="card"><h2>🧠 Pregúntale a tu coach</h2>
+    <div id="coachLog" class="coachlog"></div>
+    <div class="qchips" id="qchips">${COACH_Q.map(q => `<button class="qchip" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+    <div class="askbar"><input id="coachIn" placeholder="Pregunta sobre tu entrenamiento, sueño o comida…"><button class="iconbtn" id="coachSend">➤</button></div></div>`;
+}
+function drawCoach(){
+  const log = $("coachLog"); if(!log) return;
+  log.innerHTML = coachMsgs.map(m => `<div class="bub ${m.role === "user" ? "u" : "a"}">${esc(m.text)}</div>`).join("") + (coachBusy ? '<div class="note">pensando…</div>' : "");
+  log.style.display = coachMsgs.length || coachBusy ? "flex" : "none";
+  log.scrollTop = log.scrollHeight;
+}
+async function askCoach(text){
+  text = (text || "").trim(); if(!text || coachBusy) return;
+  coachMsgs.push({role:"user", text}); coachBusy = true; drawCoach();
+  try{
+    const resp = await fetch("/api/coach-ask", {method:"POST", headers: hdr(), signal: AbortSignal.timeout(70000),
+      body: JSON.stringify({messages: coachMsgs.map(m => ({role: m.role, text: m.text})), date})});
+    const j = await resp.json().catch(() => ({}));
+    if(!resp.ok) throw new Error(j.error || ("Error " + resp.status));
+    coachMsgs.push({role:"ai", text: j.text || "No tengo respuesta, intenta de nuevo."});
+  }catch(e){ coachMsgs.push({role:"ai", text:"⚠️ " + (e.name === "TimeoutError" ? "La IA tardó demasiado, intenta de nuevo." : (e.message || e))}); }
+  coachBusy = false; drawCoach();
+}
+function bindCoach(){
+  drawCoach();
+  document.querySelectorAll(".qchip").forEach(b => b.onclick = () => askCoach(b.dataset.q));
+  const inp = $("coachIn"); if(!inp) return;
+  const go = () => { const v = inp.value; inp.value = ""; askCoach(v); };
+  $("coachSend").onclick = go;
+  inp.addEventListener("keydown", e => { if(e.key === "Enter") go(); });
+}
+
+/* ---------- diario de hábitos ---------- */
+function journalCard(d){
+  const on = (d.journal && d.journal[date]) || {};
+  return `<div class="card"><h2>Diario · ${esc(fmtDay(date))}</h2>
+    <div class="note" style="margin:-6px 0 12px">Marca lo que hiciste este día. Con el tiempo verás cuánto afecta tu recuperación del día siguiente.</div>
+    <div class="tagrow" id="tagrow">${d.tags.map(t => `<button class="tag${on[t.key] ? " on" : ""}" data-k="${esc(t.key)}">${esc(t.label)}</button>`).join("")}</div></div>`;
+}
+function bindJournal(d){
+  document.querySelectorAll("#tagrow .tag").forEach(b => b.onclick = async () => {
+    const key = b.dataset.k, on = !b.classList.contains("on");
+    b.classList.toggle("on", on);
+    try{
+      const resp = await fetch("/api/sync", {method:"POST", headers: hdr(), body: JSON.stringify({ops:[{t:"journal", pid:"p1", date, key, on}]})});
+      if(!resp.ok) throw new Error();
+      d.journal = d.journal || {}; d.journal[date] = d.journal[date] || {};
+      if(on) d.journal[date][key] = true; else delete d.journal[date][key];
+    }catch(e){ b.classList.toggle("on", !on); }
+  });
+}
+
+/* ---------- patrones (comida + hábitos → recuperación) ---------- */
+function insightsCard(d){
+  const ins = d.insights;
+  const body = ins.items.length
+    ? ins.items.map(i => `<div class="ins ${i.good ? "good" : "bad"}"><span class="ic">${esc(i.icon)}</span><div>${esc(i.text)}<small>${i.n} días analizados</small></div></div>`).join("")
+    : `<div class="note">Todavía no hay patrones claros. Para encontrarlos hacen falta ~10 días con comidas registradas (llevas ${ins.pairedDays}) y 3+ días con y sin cada hábito del diario (llevas ${ins.journalDays} días con diario).</div>`;
+  return `<div class="card"><h2>Qué afecta tu recuperación</h2>${body}
+    <div class="note">Compara lo que haces cada día con tu recuperación, sueño y HRV del día siguiente. Son correlaciones, no pruebas de causa.</div></div>`;
+}
+
+/* ---------- rachas, medallas y mapa de calor ---------- */
+let heatMetric = "recovery";
+function streak(trend, ok){ let n = 0; for(let i = trend.length-1; i >= 0; i--){ if(ok(trend[i])) n++; else break; } return n; }
+function achievementsCard(d){
+  const t = d.trend;
+  const ss = streak(t, x => x.sleepHours != null && x.sleepHours >= 7);
+  const st = streak(t, x => x.steps != null && x.stepGoal && x.steps >= x.stepGoal);
+  const sr = streak(t, x => x.recovery != null && x.recovery >= 67);
+  const week = t.slice(-7);
+  const trainDays = new Set((d.activities||[]).filter(a => a.start && a.start.slice(0,10) >= week[0].date).map(a => a.start.slice(0,10))).size;
+  const stepDays = week.filter(x => x.steps != null && x.stepGoal && x.steps >= x.stepGoal).length;
+  const hrvs = t.map(x => x.hrv).filter(v => v != null), todayHrv = t[t.length-1].hrv;
+  const hrvRecord = todayHrv != null && hrvs.length >= 14 && todayHrv >= Math.max(...hrvs);
+  const B = [
+    ["🌙","Dormilón", ss, 3, `${ss} noches seguidas ≥ 7 h`],
+    ["😴","Maratón de sueño", ss, 7, `${ss}/7 noches ≥ 7 h`],
+    ["👟","Caminante", st, 3, `${st} días seguidos con meta de pasos`],
+    ["🚀","Imparable", st, 7, `${st}/7 días con meta de pasos`],
+    ["🟢","Cuerpo listo", sr, 3, `${sr} recuperaciones verdes seguidas`],
+    ["💪","Constante", trainDays, 3, `${trainDays}/3 días de entreno esta semana`],
+    ["🎯","Semana redonda", stepDays, 5, `${stepDays}/5 días con meta de pasos esta semana`],
+    ["🏆","Récord de HRV", hrvRecord ? 1 : 0, 1, "tu HRV más alta en 8 semanas"]
+  ];
+  const badges = B.map(([ic, nm, v, goal, desc]) => `<div class="badge${v >= goal ? " got" : ""}" title="${esc(desc)}"><div class="bi">${ic}</div><b>${nm}</b><small>${v >= goal ? "¡Logrado!" : Math.min(v, goal) + "/" + goal}</small></div>`).join("");
+  return `<div class="card"><h2>Logros <b>racha de sueño ${ss} · pasos ${st}</b></h2>
+    <div class="badges">${badges}</div>
+    <div class="hm-head"><span>Últimas 8 semanas</span><span class="seg">${[["recovery","Recuperación"],["sleepScore","Sueño"],["steps","Pasos"]].map(([k,l]) => `<button class="${heatMetric === k ? "on" : ""}" data-hm="${k}">${l}</button>`).join("")}</span></div>
+    <div id="heat"></div></div>`;
+}
+function drawHeat(d){
+  const el = $("heat"); if(!el) return;
+  const t = d.trend, k = heatMetric;
+  const col = (x) => {
+    const v = x[k]; if(v == null) return "rgba(255,255,255,.05)";
+    if(k === "recovery") return recColor(v);
+    if(k === "sleepScore") return v >= 80 ? "var(--green)" : v >= 60 ? "var(--yellow)" : "var(--red)";
+    const g = x.stepGoal || 10000; return v >= g ? "var(--green)" : v >= g*.7 ? "var(--yellow)" : "var(--red)";
+  };
+  const first = new Date(t[0].date + "T12:00:00");
+  const pad = (first.getDay() + 6) % 7; // lunes = 0
+  const cells = Array(pad).fill(null).concat(t);
+  const weeks = Math.ceil(cells.length / 7);
+  let html = '<div class="heat" style="grid-template-columns:repeat(' + weeks + ',1fr)">';
+  for(let w = 0; w < weeks; w++) for(let r = 0; r < 7; r++){
+    const x = cells[w*7 + r];
+    html += x ? `<i style="background:${col(x)};opacity:${x[k] == null ? 1 : .88}" title="${x.date}: ${x[k] == null ? "sin datos" : Math.round(x[k])}"></i>` : "<i style='visibility:hidden'></i>";
+  }
+  el.innerHTML = html + "</div>";
+  document.querySelectorAll("[data-hm]").forEach(b => b.onclick = () => { heatMetric = b.dataset.hm; document.querySelectorAll("[data-hm]").forEach(x => x.classList.toggle("on", x === b)); drawHeat(d); });
+}
+
+/* ---------- resumen semanal con IA ---------- */
+let weeklyText = null;
+function weeklyCard(){
+  return `<div class="card"><h2>📅 Resumen de la semana</h2>
+    <div id="weeklyBody">${weeklyText ? `<div class="weekly">${esc(weeklyText)}</div>` : '<div class="note" style="margin-top:0">Un informe escrito por la IA con lo mejor de la semana, lo que cuidar y un plan para la próxima, comparado con la semana anterior.</div>'}</div>
+    <button class="btn" id="btnWeekly">${weeklyText ? "Volver a generar" : "Generar resumen"}</button></div>`;
+}
+function bindWeekly(){
+  const b = $("btnWeekly"); if(!b) return;
+  b.onclick = async () => {
+    b.disabled = true; b.textContent = "Escribiendo…";
+    try{
+      const resp = await fetch("/api/weekly?date=" + date + (weeklyText ? "&refresh=1" : ""), {headers: hdr(), signal: AbortSignal.timeout(70000)});
+      const j = await resp.json().catch(() => ({}));
+      if(!resp.ok) throw new Error(j.error || ("Error " + resp.status));
+      weeklyText = j.text;
+      $("weeklyBody").innerHTML = `<div class="weekly">${esc(weeklyText)}</div>`;
+      b.textContent = "Volver a generar";
+    }catch(e){ $("weeklyBody").innerHTML = '<div class="err">⚠️ ' + esc(e.name === "TimeoutError" ? "La IA tardó demasiado, intenta de nuevo." : (e.message || e)) + '</div>'; b.textContent = "Reintentar"; }
+    b.disabled = false;
+  };
 }
 
 function render(){
@@ -399,18 +602,22 @@ function render(){
       ${ring(s && s.score, 100, "var(--sleep)", s && s.score != null ? s.score : "—", s ? hm(s.seconds) : "", "Sueño")}
       ${ring(d.strain, 21, "var(--strain)", num(d.strain,1), "de 21", "Esfuerzo")}
     </div><div class="verdict">${verdict(d)}</div></div>
-    ${recoveryCard(d)}${sleepCard(d)}${hrvCard(d)}${bodyBatteryCard(d)}${hrCard(d)}${dayCard(d)}${trendCard(d)}${actCard(d)}
+    ${alertsCard(d)}${planCard(d)}${coachCard()}
+    ${recoveryCard(d)}${sleepCard(d)}${hrvCard(d)}${bodyBatteryCard(d)}${hrCard(d)}${dayCard(d)}
+    ${journalCard(d)}${insightsCard(d)}${achievementsCard(d)}${weeklyCard()}${trendCard(d)}${actCard(d)}
     <div class="note" style="text-align:center">Datos de Garmin Connect · el esfuerzo y la recuperación son estimaciones propias</div>`;
   document.querySelectorAll(".act").forEach(a => a.onclick = () => a.classList.toggle("open"));
+  bindCoach(); bindJournal(d); drawHeat(d); bindWeekly();
 }
 
 async function load(){
   const my = ++seq;
+  weeklyText = null;
   $("dateLbl").textContent = fmtDay(date);
   $("next").style.visibility = date >= todayS ? "hidden" : "visible";
   $("root").innerHTML = '<div class="state"><div class="spinner"></div>Cargando datos de Garmin…</div>';
   try{
-    const resp = await fetch("/api/garmin?date=" + date, {headers: {"x-nt-pin": localStorage.getItem("nt_pin") || ""}});
+    const resp = await fetch("/api/garmin?date=" + date, {headers: hdr()});
     if(my !== seq) return;
     if(resp.status === 401) throw new Error("Necesitas el PIN de acceso: ábrelo primero desde NuTracker (pantalla principal) y vuelve.");
     const j = await resp.json().catch(() => ({}));

@@ -92,6 +92,7 @@
   }
   .rkcal{font-size:42px; font-weight:800; letter-spacing:-1.5px; line-height:1;}
   .rgoal{font-size:13px; color:var(--muted); margin-top:5px;}
+  .rnote{font-size:10.5px; color:var(--accent); margin-top:3px; font-weight:600; min-height:13px;}
   .rleft{font-size:12px; font-weight:700; color:var(--accent); margin-top:7px; background:var(--accent-dim); border-radius:99px; padding:3px 12px;}
   .rleft.over{color:#fca5a5; background:#2a1518;}
   .macros{display:flex; gap:10px;}
@@ -573,6 +574,7 @@
     <div class="ringcenter">
       <div class="rkcal" id="sumKcal">0</div>
       <div class="rgoal">de <span id="goalKcal">2000</span> kcal</div>
+      <div class="rnote" id="goalNote"></div>
       <div class="rleft" id="kcalLeft">quedan 2000</div>
     </div>
   </div>
@@ -660,6 +662,7 @@
 
     <label>Metas de <span id="lblProfName">este perfil</span> — calorías diarias</label>
     <input id="sGoal" type="number" inputmode="numeric" placeholder="2000">
+    <label id="lblGadj" style="display:none;margin-top:12px"><input id="sGadj" type="checkbox" style="width:auto;margin-right:8px;vertical-align:middle">⌚ Ajustar mi meta según la actividad de Garmin</label>
     <div class="row2">
       <div><label>Meta proteína (g)</label><input id="sGProt" type="number" inputmode="numeric" placeholder="opcional"></div>
       <div><label>Meta carbos (g)</label><input id="sGCarb" type="number" inputmode="numeric" placeholder="opcional"></div>
@@ -763,6 +766,7 @@ function applyOp(s, op){
     if(g.goal != null) pr.settings.goal = Number(g.goal) || 2000;
     if("gprot" in g) pr.settings.gprot = g.gprot;
     if("gcarb" in g) pr.settings.gcarb = g.gcarb;
+    if("gadj" in g) pr.settings.gadj = !!g.gadj;
   }else if(op.t === "rename" && pr){
     pr.name = op.name;
   }else if(op.t === "key" && op.key){
@@ -874,6 +878,27 @@ function round1(n){ return Math.round(n*10)/10; }
 /* ================= render ================= */
 const RING_C = 527.8; // 2π·84
 
+/* gasto activo de Garmin (solo Nico): si gastaste más que tu promedio de 14 días, la meta sube */
+const energy = {}, energyBusy = {};
+function loadEnergy(date){
+  if(pid !== "p1" || !state.hasGarmin || MOCK) return;
+  const e = energy[date];
+  if(energyBusy[date] || (e && Date.now() - e.t < 5*60e3)) return;
+  energyBusy[date] = true;
+  fetch("/api/garmin?view=energy&date=" + date, {headers: pinHeaders()})
+    .then(r => r.ok ? r.json() : null)
+    .then(j => { if(j && j.kcalActive != null) energy[date] = Object.assign({t: Date.now()}, j); else energy[date] = {t: Date.now()}; })
+    .catch(() => { energy[date] = {t: Date.now()}; })
+    .finally(() => { energyBusy[date] = false; if(date === viewDate) render(); });
+}
+function garminBonus(){
+  const e = energy[viewDate], st = prof().settings;
+  if(pid !== "p1" || !state.hasGarmin || st.gadj === false || !e || e.kcalActive == null || e.avgActive == null || e.days < 5) return 0;
+  let b = Math.round((e.kcalActive - e.avgActive) * 0.75 / 10) * 10;
+  if(viewDate === todayStr()) b = Math.max(0, b); // el día aún no termina: solo sube, no baja
+  return Math.max(-300, Math.min(700, b));
+}
+
 function dayStats(){
   const es = getEntries(viewDate);
   const tot = es.reduce((a,e) => ({k:a.k+e.kcal, p:a.p+e.prot, c:a.c+e.carb, f:a.f+e.fat}), {k:0,p:0,c:0,f:0});
@@ -881,9 +906,11 @@ function dayStats(){
   // si hay briefing del coach para este día (perfil p1), sus metas mandan
   const coach = pid === "p1" ? (state.coach || {})[viewDate] : null;
   const cn = coach && coach.nutricion;
+  const base = (cn && cn.objetivo) || Number(st.goal) || 2000;
+  const bonus = cn && cn.objetivo ? 0 : garminBonus(); // el briefing del coach ya trae su propia meta
   return {
-    es, tot, coach,
-    goal: (cn && cn.objetivo) || Number(st.goal) || 2000,
+    es, tot, coach, bonus,
+    goal: base + bonus,
     gp: (cn && cn.proteina_g) || st.gprot,
     gc: (cn && cn.carbos_g) || st.gcarb,
     gf: cn && cn.grasas_g
@@ -907,11 +934,13 @@ function render(){
 
   $("dateLabel").textContent = fmtDate(viewDate);
   $("nextDay").style.visibility = viewDate >= todayStr() ? "hidden" : "visible";
-  const {es, tot, coach, goal, gp, gc, gf} = dayStats();
+  const {es, tot, coach, goal, gp, gc, gf, bonus} = dayStats();
+  loadEnergy(viewDate);
 
   // anillo de calorías
   $("sumKcal").textContent = Math.round(tot.k);
   $("goalKcal").textContent = goal;
+  $("goalNote").textContent = bonus ? (bonus > 0 ? "+" : "−") + Math.abs(bonus) + " por tu actividad ⌚" : "";
   const pct = Math.min(1, tot.k/goal);
   const ring = $("ringProg");
   ring.style.strokeDashoffset = RING_C * (1 - pct);
@@ -1145,6 +1174,8 @@ $("btnSettings").onclick = () => {
   $("sGoal").value = st.goal || "";
   $("sGProt").value = st.gprot || "";
   $("sGCarb").value = st.gcarb || "";
+  $("lblGadj").style.display = (pid === "p1" && state.hasGarmin) ? "block" : "none";
+  $("sGadj").checked = st.gadj !== false;
   $("sNames").innerHTML = Object.keys(state.profiles).map(k =>
     `<input data-pid="${k}" maxlength="20" style="margin-bottom:8px" value="${esc(state.profiles[k].name).replace(/"/g,"&quot;")}">`).join("");
   open("ovSettings");
@@ -1153,7 +1184,8 @@ $("sSave").onclick = () => {
   const ops = [{t:"set", pid, settings: {
     goal: Number($("sGoal").value) || 2000,
     gprot: Number($("sGProt").value) || null,
-    gcarb: Number($("sGCarb").value) || null
+    gcarb: Number($("sGCarb").value) || null,
+    gadj: $("sGadj").checked
   }}];
   document.querySelectorAll("#sNames input").forEach(inp => {
     const n = inp.value.trim();
@@ -1526,7 +1558,7 @@ async function sendChat(){
           body: JSON.stringify({
             messages: chatMsgs.map(m => ({role: m.role === "user" ? "user" : "ai", text: m.text})),
             today: getEntries(viewDate).map(e => ({name: e.name, kcal: e.kcal})),
-            stats: chatStats()
+            stats: chatStats(), pid, date: viewDate
           })
         });
       }catch(e){ throw new Error(e && e.name === "TimeoutError" ? "La IA está tardando demasiado. Intenta de nuevo en un momento." : "Sin conexión con el servidor. Puedes agregar la comida en modo ✏️ Manual."); }

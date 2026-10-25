@@ -21,6 +21,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const garmin = require("./garmin");
+const coach = require("./coach");
 
 const PORT = process.env.PORT || 3210;
 const ROOT = __dirname;
@@ -93,6 +94,13 @@ function applyOp(op) {
     if (s.goal != null) prof.settings.goal = Number(s.goal) || 2000;
     if ("gprot" in s) prof.settings.gprot = s.gprot === null ? null : Number(s.gprot) || null;
     if ("gcarb" in s) prof.settings.gcarb = s.gcarb === null ? null : Number(s.gcarb) || null;
+    if ("gadj" in s) prof.settings.gadj = !!s.gadj;
+  } else if (op.t === "journal" && prof && /^\d{4}-\d{2}-\d{2}$/.test(op.date || "") && coach.TAGS.some(t => t.key === op.key)) {
+    // diario de hábitos (café, alcohol…): se cruza con la recuperación del día siguiente
+    const j = (prof.journal = prof.journal || {});
+    const day = (j[op.date] = j[op.date] || {});
+    if (op.on) day[op.key] = true; else delete day[op.key];
+    Object.keys(j).sort().slice(0, -120).forEach(d => delete j[d]);
   } else if (op.t === "rename" && prof && typeof op.name === "string" && op.name.trim()) {
     prof.name = op.name.trim().slice(0, 20);
   } else if (op.t === "key" && typeof op.key === "string" && op.key.trim()) {
@@ -298,6 +306,54 @@ Reglas:
 - Si pide recomendaciones de qué comer, usa el bloque "Metas y consumo de hoy": propón 2 o 3 ideas concretas y realistas (comida chilena cotidiana, acorde a la hora del día) que calcen con las calorías restantes y prioricen el macro que más falta (sobre todo proteína). Ponlas en "sugerencias" (mismo formato que "comidas", con porción y macros) — NO en "comidas", porque aún no las ha comido — y explica en "respuesta" en 1-2 frases por qué. Si ya superó su meta, dilo con tacto y sugiere algo liviano.
 - Si no da cantidades usa porciones típicas chilenas y dilo en la respuesta. Macros en gramos.`;
 
+/* ---------- coach y resumen semanal (solo perfil p1 = Nico) ---------- */
+const COACH_PROMPT = `Eres el coach personal de entrenamiento, sueño y nutrición de Nico. Respondes en español, de forma cercana y concreta (máximo 130 palabras, sin relleno).
+Usa SOLO los datos de abajo; si falta un dato, dilo en vez de inventarlo. Cuando hables de comida da cantidades (kcal y macros en g). No eres médico: ante dolor o síntomas raros, sugiere consultar a un profesional.`;
+
+function todayCL() { return new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10); }
+function validDate(d) { return /^\d{4}-\d{2}-\d{2}$/.test(d || "") ? d : todayCL(); }
+
+function coachAsk(body, cb) {
+  if (!garmin.enabled()) return cb({ status: 400, error: "Falta GARMIN_API_KEY en el servidor." });
+  const msgs = (Array.isArray(body.messages) ? body.messages : []).slice(-8);
+  if (!msgs.length) return cb({ status: 400, error: "Falta la pregunta." });
+  const date = validDate(body.date), prof = state.profiles.p1;
+  garmin.getDay(date).then(g => {
+    const ex = coach.analyze(g, prof);
+    const transcript = msgs.map(m => (m.role === "user" ? "Nico: " : "Coach: ") + String(m.text || "").slice(0, 600)).join("\n");
+    const prompt = COACH_PROMPT + "\n\n" + coach.contextText(g, prof, ex) + "\n\nConversación:\n" + transcript + "\nCoach:";
+    askAI({ prompt, maxTokens: 900, fast: true }, (err, ok) => err ? cb(err) : cb(null, { text: (ok.text || "").trim() }));
+  }).catch(e => cb({ status: 502, error: e.message || "No se pudo consultar Garmin." }));
+}
+
+const weeklyCache = new Map();
+function weekly(date, refresh, cb) {
+  if (!garmin.enabled()) return cb({ status: 400, error: "Falta GARMIN_API_KEY en el servidor." });
+  date = validDate(date);
+  const key = date + ":" + Math.floor(Date.now() / (6 * 3600e3));
+  if (!refresh && weeklyCache.has(key)) return cb(null, weeklyCache.get(key));
+  const prof = state.profiles.p1;
+  garmin.getDay(date).then(g => {
+    const stats = coach.weekStats(g, prof);
+    const prompt = COACH_PROMPT + `
+
+Escribe el RESUMEN SEMANAL de Nico comparando "semana" con "semana_anterior". Formato (texto plano, sin markdown, usa estos tres encabezados con su emoji):
+🏆 Lo mejor de la semana
+⚠️ A cuidar
+🎯 Plan para la próxima semana
+Cada sección con 2-3 viñetas cortas que empiecen con "• " y citen números concretos (recuperación, sueño, HRV, entrenamientos, calorías/proteína). Máximo 220 palabras en total.
+
+Datos (JSON):
+` + JSON.stringify(stats);
+    askAI({ prompt, maxTokens: 1200, fast: true }, (err, ok) => {
+      if (err) return cb(err);
+      const out = { text: (ok.text || "").trim(), desde: stats.semana.desde, hasta: stats.semana.hasta, generado: Date.now() };
+      weeklyCache.set(key, out);
+      cb(null, out);
+    });
+  }).catch(e => cb({ status: 502, error: e.message || "No se pudo consultar Garmin." }));
+}
+
 function chat(body, cb) {
   const msgs = (Array.isArray(body.messages) ? body.messages : []).slice(-12);
   if (!msgs.length) return cb({ status: 400, error: "Falta el mensaje." });
@@ -315,8 +371,17 @@ function chat(body, cb) {
       "- Carbos: " + (n(st.carb) || 0) + " g" + (n(st.gcarb) ? " de " + n(st.gcarb) + " g" : "") + "\n" +
       "- Grasas: " + (n(st.fat) || 0) + " g" + (n(st.gfat) ? " de " + n(st.gfat) + " g" : "");
   }
-  const prompt = CHAT_PROMPT + goals + "\n\nYa registrado hoy:\n" + (today || "(nada todavía)") + "\n\nConversación:\n" + transcript + "\nAsistente:";
-  askAI({ prompt, maxTokens: 1500, fast: true }, cb);
+  const build = garminCtx => CHAT_PROMPT + goals + garminCtx + "\n\nYa registrado hoy:\n" + (today || "(nada todavía)") + "\n\nConversación:\n" + transcript + "\nAsistente:";
+  const send = garminCtx => askAI({ prompt: build(garminCtx), maxTokens: 1500, fast: true }, cb);
+  // Nico: la IA también ve su recuperación, sueño y entrenos para recomendar comida con criterio
+  if (body.pid === "p1" && garmin.enabled()) {
+    const date = validDate(body.date);
+    return garmin.getDay(date)
+      .then(g => send("\n\n" + coach.contextText(g, state.profiles.p1, coach.analyze(g, state.profiles.p1)) +
+        "\nSi recomiendas comida, ajústala a este estado (entrenó, recuperación, gasto calórico)."))
+      .catch(() => send(""));
+  }
+  send("");
 }
 
 /* ================= HTTP ================= */
@@ -379,9 +444,23 @@ const server = http.createServer((req, res) => {
       if (!garmin.enabled()) return sendJSON(res, 400, { error: "Falta la variable GARMIN_API_KEY en el servidor." });
       const date = url.searchParams.get("date") || "";
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return sendJSON(res, 400, { error: "Fecha inválida." });
-      return garmin.getDay(date)
-        .then(d => sendJSON(res, 200, d))
+      const job = url.searchParams.get("view") === "energy"
+        ? garmin.getEnergy(date)
+        : garmin.getDay(date).then(g => Object.assign(g, coach.analyze(g, state.profiles.p1)));
+      return job.then(d => sendJSON(res, 200, d))
         .catch(e => sendJSON(res, 502, { error: e.message || "No se pudo consultar Garmin." }));
+    }
+    if (p === "/api/coach-ask" && req.method === "POST") {
+      return readBody(req, res, 64 * 1024, body => coachAsk(body, (err, ok) => {
+        if (err) return sendJSON(res, err.status, { error: err.error });
+        sendJSON(res, 200, ok);
+      }));
+    }
+    if (p === "/api/weekly" && req.method === "GET") {
+      return weekly(url.searchParams.get("date") || "", url.searchParams.get("refresh") === "1", (err, ok) => {
+        if (err) return sendJSON(res, err.status, { error: err.error });
+        sendJSON(res, 200, ok);
+      });
     }
     if (p === "/api/transcribe" && req.method === "POST") {
       return readBody(req, res, 8 * 1024 * 1024, body => {
