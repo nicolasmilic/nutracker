@@ -20,6 +20,7 @@ const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const zlib = require("zlib");
 const garmin = require("./garmin");
 const coach = require("./coach");
 const weather = require("./weather");
@@ -58,8 +59,16 @@ function pruneOldImages() {
   );
 }
 
+/* revisión del estado: cambia con cada modificación. Los sync periódicos que
+ * no traen operaciones y ya tienen esta revisión reciben un "sin cambios"
+ * diminuto en vez de todo el estado (que incluye las miniaturas de las fotos). */
+const BOOT = Date.now().toString(36);
+let revN = 0;
+const rev = () => BOOT + "-" + revN;
+
 let saveTimer = null;
 function persist() {
+  revN++;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     pruneOldImages();
@@ -122,7 +131,21 @@ function publicState() {
     profiles: state.profiles,
     coach: state.coach,
     hasKey: !!aiKey(),
-    hasGarmin: garmin.enabled()
+    hasGarmin: garmin.enabled(),
+    rev: rev()
+  };
+}
+
+/* lo que Nico lleva comido en una fecha + sus metas (tarjeta "Comida" del panel Garmin) */
+function dayFood(date) {
+  const pr = state.profiles.p1 || freshProfile("Nico");
+  const n = coach.dayNutrition(pr.log[date]);
+  const c = state.coach[date] && state.coach[date].nutricion;
+  const r = v => Math.round(v || 0);
+  return {
+    kcal: n ? r(n.kcal) : 0, prot: n ? r(n.prot) : 0, carb: n ? r(n.carb) : 0, fat: n ? r(n.fat) : 0, n: n ? n.n : 0,
+    goal: (c && c.objetivo) || Number(pr.settings.goal) || 2000,
+    gprot: (c && c.proteina_g) || pr.settings.gprot || null
   };
 }
 
@@ -393,8 +416,40 @@ const MIME = {
 };
 
 function sendJSON(res, code, obj) {
-  res.writeHead(code, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
-  res.end(JSON.stringify(obj));
+  const head = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+  const body = Buffer.from(JSON.stringify(obj));
+  if (res._gz && body.length > 1024) {
+    head["content-encoding"] = "gzip"; head.vary = "accept-encoding";
+    return zlib.gzip(body, (err, gz) => { if (err) { delete head["content-encoding"]; gz = body; } res.writeHead(code, head); res.end(gz); });
+  }
+  res.writeHead(code, head);
+  res.end(body);
+}
+
+/* archivos estáticos: en memoria, comprimidos y con ETag (si no cambió → 304 sin cuerpo) */
+const staticCache = new Map();
+const COMPRESSIBLE = /\.(html|js|json|svg|css|webmanifest)$/;
+function sendStatic(req, res, full) {
+  fs.stat(full, (err, st) => {
+    if (err || !st.isFile()) { res.writeHead(404, { "content-type": "text/plain; charset=utf-8" }); return res.end("No encontrado"); }
+    const etag = '"' + st.size.toString(36) + "-" + Math.round(st.mtimeMs).toString(36) + '"';
+    const head = { "content-type": MIME[path.extname(full)] || "application/octet-stream", "cache-control": "no-cache", etag, vary: "accept-encoding" };
+    if (req.headers["if-none-match"] === etag) { res.writeHead(304, head); return res.end(); }
+    const serve = hit => {
+      const gz = res._gz && hit.gz;
+      if (gz) head["content-encoding"] = "gzip";
+      res.writeHead(200, head);
+      res.end(gz ? hit.gz : hit.raw);
+    };
+    const hit = staticCache.get(full);
+    if (hit && hit.etag === etag) return serve(hit);
+    fs.readFile(full, (e2, raw) => {
+      if (e2) { res.writeHead(404, { "content-type": "text/plain; charset=utf-8" }); return res.end("No encontrado"); }
+      const entry = { etag, raw, gz: null };
+      if (!COMPRESSIBLE.test(full)) { staticCache.set(full, entry); return serve(entry); }
+      zlib.gzip(raw, { level: 9 }, (e3, gz) => { if (!e3) entry.gz = gz; staticCache.set(full, entry); serve(entry); });
+    });
+  });
 }
 
 function readBody(req, res, limit, cb) {
@@ -414,6 +469,7 @@ function readBody(req, res, limit, cb) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x");
   const p = url.pathname;
+  res._gz = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
 
   if (p.startsWith("/api/")) {
     if (PIN && (req.headers["x-nt-pin"] || "") !== PIN) {
@@ -421,8 +477,10 @@ const server = http.createServer((req, res) => {
     }
     if (p === "/api/sync" && req.method === "POST") {
       return readBody(req, res, 2 * 1024 * 1024, body => {
-        (Array.isArray(body.ops) ? body.ops : []).forEach(applyOp);
-        persist();
+        const ops = Array.isArray(body.ops) ? body.ops : [];
+        // sin operaciones no se reescribe nada (antes cada sync periódico guardaba todo en Upstash)
+        if (ops.length) { ops.forEach(applyOp); persist(); }
+        else if (body.rev && body.rev === rev()) return sendJSON(res, 200, { same: true, rev: rev() });
         sendJSON(res, 200, publicState());
       });
     }
@@ -447,7 +505,7 @@ const server = http.createServer((req, res) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return sendJSON(res, 400, { error: "Fecha inválida." });
       const job = url.searchParams.get("view") === "energy"
         ? garmin.getEnergy(date)
-        : garmin.getDay(date).then(g => Object.assign(g, coach.analyze(g, state.profiles.p1)));
+        : garmin.getDay(date).then(g => Object.assign(g, coach.analyze(g, state.profiles.p1), { nutrition: dayFood(date) }));
       return job.then(d => sendJSON(res, 200, d))
         .catch(e => sendJSON(res, 502, { error: e.message || "No se pudo consultar Garmin." }));
     }
@@ -494,11 +552,7 @@ const server = http.createServer((req, res) => {
   file = path.normalize(file).replace(/^(\.\.[\\/])+/, "");
   const full = path.join(PUBLIC, file);
   if (!full.startsWith(PUBLIC)) { res.writeHead(403); return res.end(); }
-  fs.readFile(full, (err, data) => {
-    if (err) { res.writeHead(404, { "content-type": "text/plain; charset=utf-8" }); return res.end("No encontrado"); }
-    res.writeHead(200, { "content-type": MIME[path.extname(full)] || "application/octet-stream", "cache-control": "no-cache" });
-    res.end(data);
-  });
+  sendStatic(req, res, full);
 });
 
 (async function main() {

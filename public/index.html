@@ -549,6 +549,65 @@
   .sheet input, .sheet textarea{font-size:16px;}
   body.noscroll{overflow:hidden; position:fixed; width:100%;}
   @media (max-width:480px){ .bub{font-size:15px;} #chatLog .linkbtn{font-size:14px;} }
+  /* =====================================================================
+     MEJORAS: frecuentes, semana, deshacer, escritorio a dos columnas
+     ===================================================================== */
+  body{padding-bottom:max(120px, calc(env(safe-area-inset-bottom) + 90px));}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .datebar .datelabel{cursor:pointer; user-select:none;}
+  .datebar .datelabel.past::after{content:" · volver a hoy"; font-size:11px; color:var(--accent); font-weight:600;}
+  .entry{gap:10px;}
+  .entry .del{width:34px; height:34px; border-radius:50%; padding:0; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin:0 -8px 0 -6px; transition:background .15s;}
+  .entry .del:hover{background:rgba(248,113,113,.14);}
+  .toast{align-items:center; gap:14px; white-space:nowrap; max-width:calc(100vw - 32px); bottom:max(26px, calc(env(safe-area-inset-bottom) + 16px)); animation:toastin .25s cubic-bezier(.22,1,.36,1);}
+  @keyframes toastin{from{opacity:0; transform:translate(-50%,12px)} to{opacity:1; transform:translate(-50%,0)}}
+  .toast button{background:none; border:none; color:var(--accent); font-weight:800; font-size:14px; cursor:pointer; padding:2px 0;}
+  .toast button:empty{display:none;}
+
+  /* comidas frecuentes: un toque para repetir */
+  .freq{display:flex; gap:8px; overflow-x:auto; margin:0 -16px 18px; padding:2px 16px 4px; scrollbar-width:none;}
+  .fq{
+    flex-shrink:0; display:flex; align-items:center; gap:8px; max-width:240px; background:var(--card);
+    border:1px solid var(--border); color:var(--text); border-radius:99px; padding:6px 13px 6px 6px;
+    font-size:13px; font-weight:600; cursor:pointer; transition:transform .12s, background .15s;
+  }
+  .fq:hover{background:var(--card2);} .fq:active{transform:scale(.96);}
+  .fq img, .fq .ph{width:30px; height:30px; border-radius:50%; object-fit:cover; background:rgba(255,255,255,.07); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;}
+  .fq span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .fq b{color:var(--accent); font-weight:700; white-space:nowrap;}
+
+  /* últimos 7 días */
+  .week{background:var(--card); border:1px solid var(--border); border-radius:22px; padding:16px 14px 12px; backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);}
+  .wkhead{display:flex; gap:8px; margin-bottom:14px;}
+  .wkhead div{flex:1; text-align:center;}
+  .wkhead b{display:block; font-size:19px; font-weight:800; letter-spacing:-.5px;}
+  .wkhead small{display:block; font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.7px; font-weight:700; margin-top:2px;}
+  .wkbars{display:flex; gap:6px; align-items:flex-end;}
+  .wkd{flex:1; min-width:0; background:none; border:none; color:var(--muted); cursor:pointer; padding:0; display:flex; flex-direction:column; align-items:center; gap:5px;}
+  .wkd .v{font-size:10px; font-weight:700; min-height:12px;}
+  .wkd .col{position:relative; width:100%; height:84px; border-radius:10px; background:rgba(255,255,255,.05); overflow:hidden; display:flex; align-items:flex-end; transition:box-shadow .15s;}
+  .wkd .col i{display:block; width:100%; border-radius:10px 10px 0 0; background:linear-gradient(180deg,#7cb4ff,#2dd4bf); transition:height .6s cubic-bezier(.22,1,.36,1);}
+  .wkd.over .col i{background:linear-gradient(180deg,#f87171,#f59e0b);}
+  .wkd .col u{position:absolute; left:0; right:0; height:0; border-top:1.5px dashed rgba(255,255,255,.5);}
+  .wkd small{font-size:11px; font-weight:700;}
+  .wkd.sel .col{box-shadow:inset 0 0 0 1.5px var(--accent);}
+  .wkd.sel small{color:var(--accent);}
+  .wknote{font-size:11px; color:var(--muted); margin-top:10px; text-align:center;}
+  #weekBox .section-title{margin-top:22px;}
+
+  /* PC: resumen fijo a la izquierda, comidas y semana a la derecha */
+  @media (min-width:900px){
+    body{max-width:1040px; padding-left:28px; padding-right:28px;}
+    .layout{display:grid; grid-template-columns:minmax(0,440px) minmax(0,1fr); gap:30px; align-items:start;}
+    .colA{position:sticky; top:18px;}
+    .profiles{max-width:440px;}
+    .freq{margin:0 0 18px; padding:2px 0 4px; flex-wrap:wrap; overflow:visible;}
+    .overlay{align-items:center;}
+    .sheet{border-radius:28px; border-bottom:1px solid var(--border); max-height:86vh;}
+    .sheet::before{display:none;}
+    #ovChat .chatsheet{height:min(720px, calc(var(--vvh,100vh) - 60px));}
+  }
+  @media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important;} }
 </style>
 </head>
 <body>
@@ -557,16 +616,18 @@
   <h1><span class="logo">🥗</span>NuTracker</h1>
   <div class="right">
     <div class="syncdot" id="syncDot" title="Sincronizado"></div>
-    <button class="iconbtn" id="btnSettings" title="Ajustes">⚙️</button>
+    <button class="iconbtn" id="btnSettings" title="Ajustes" aria-label="Ajustes">⚙️</button>
   </div>
 </div>
 
 <div class="profiles" id="profileTabs"></div>
 
+<div class="layout">
+<div class="colA">
 <div class="datebar">
-  <button id="prevDay">‹</button>
-  <div class="datelabel" id="dateLabel"></div>
-  <button id="nextDay">›</button>
+  <button id="prevDay" aria-label="Día anterior">‹</button>
+  <div class="datelabel" id="dateLabel" role="button" tabindex="0"></div>
+  <button id="nextDay" aria-label="Día siguiente">›</button>
 </div>
 
 <div class="summary">
@@ -618,9 +679,15 @@
 </div>
 <button class="btn btn-ghost" id="btnChat" style="width:100%;margin:-8px 0 20px">💬 Contarle a la IA lo que comí</button>
 <input type="file" id="fileInput" accept="image/*" hidden>
+</div>
 
+<div class="colB">
+<div id="freqBox"></div>
 <div class="section-title">Comidas del día</div>
 <div id="entries"></div>
+<div id="weekBox"></div>
+</div>
+</div>
 
 <!-- ===== Modal: análisis ===== -->
 <div class="overlay" id="ovAnalyze">
@@ -725,7 +792,7 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status"><span id="toastMsg"></span><button id="toastAct"></button></div>
 
 <script>
 (function(){
@@ -826,19 +893,24 @@ async function sync(){
     const resp = await fetch("/api/sync", {
       method: "POST",
       headers: pinHeaders(),
-      body: JSON.stringify({ops: queue.slice(0, sent)})
+      // con la revisión que ya tengo, el servidor contesta "sin cambios" si no hay nada nuevo
+      body: JSON.stringify({ops: queue.slice(0, sent), rev: sent ? undefined : state.rev})
     });
     if(resp.status === 401){ askPin(); throw new Error("pin"); }
     if(!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
     queue = queue.slice(sent);          // lo enviado ya está en el servidor
-    state = data;
-    queue.forEach(op => applyOp(state, op)); // reaplica lo que llegó mientras tanto
-    if(!state.profiles[pid]) pid = "p1";
-    persistLocal();
     setOnline(true);
-    goGarminOnLaunch();
-    render();
+    if(!data.same){
+      state = data;
+      queue.forEach(op => applyOp(state, op)); // reaplica lo que llegó mientras tanto
+      if(!state.profiles[pid]) pid = "p1";
+      persistLocal();
+      goGarminOnLaunch();
+      render();
+    }else{
+      goGarminOnLaunch();
+    }
   }catch(e){
     setOnline(false);
   }finally{
@@ -872,10 +944,28 @@ function open(id){ $(id).classList.add("open"); }
 function close(id){ $(id).classList.remove("open"); }
 document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => close(b.dataset.close));
 document.querySelectorAll(".overlay:not(#ovPin):not(#ovWho)").forEach(ov => ov.addEventListener("click", e => { if(e.target === ov) ov.classList.remove("open"); }));
-function toast(msg){
-  const t = $("toast"); t.textContent = msg; t.style.display = "block";
-  clearTimeout(t._t); t._t = setTimeout(() => t.style.display = "none", 2200);
+/* toast(msg) o toast(msg, {label, fn, ms}) con un botón de acción (p. ej. Deshacer) */
+function toast(msg, act){
+  const t = $("toast"), b = $("toastAct");
+  $("toastMsg").textContent = msg;
+  b.textContent = act ? act.label : "";
+  b.onclick = act ? () => { t.style.display = "none"; act.fn(); } : null;
+  t.style.display = "none"; void t.offsetWidth; t.style.display = "flex"; // reinicia la animación
+  clearTimeout(t._t); t._t = setTimeout(() => t.style.display = "none", act ? (act.ms || 5000) : 2200);
 }
+/* borrar con opción de deshacer (antes un toque en 🗑 borraba sin vuelta atrás) */
+function removeEntry(e, date){
+  const p = pid;
+  mutate([{t:"del", pid: p, date, id: e.id}]);
+  toast("Comida eliminada", {label: "Deshacer", fn: () => mutate([{t:"add", pid: p, date, entry: e}])});
+}
+/* Esc cierra la ventana abierta (la de más arriba) */
+document.addEventListener("keydown", e => {
+  if(e.key !== "Escape") return;
+  const top = Array.from(document.querySelectorAll(".overlay.open:not(#ovPin):not(#ovWho)")).pop();
+  const x = top && top.querySelector(".closex");
+  if(x) x.click();
+});
 function fmtDate(ds){
   const [y,m,d] = ds.split("-").map(Number);
   const dt = new Date(y, m-1, d);
@@ -911,9 +1001,15 @@ function garminBonus(){
   return Math.max(-300, Math.min(700, b));
 }
 
+const sumEntries = es => es.reduce((a,e) => ({k:a.k+(Number(e.kcal)||0), p:a.p+(Number(e.prot)||0), c:a.c+(Number(e.carb)||0), f:a.f+(Number(e.fat)||0)}), {k:0,p:0,c:0,f:0});
+/* meta de calorías de un día cualquiera (sin el bono de actividad, que solo se conoce para el día en pantalla) */
+function baseGoal(date){
+  const coach = pid === "p1" ? (state.coach || {})[date] : null;
+  return (coach && coach.nutricion && coach.nutricion.objetivo) || Number(prof().settings.goal) || 2000;
+}
 function dayStats(){
   const es = getEntries(viewDate);
-  const tot = es.reduce((a,e) => ({k:a.k+e.kcal, p:a.p+e.prot, c:a.c+e.carb, f:a.f+e.fat}), {k:0,p:0,c:0,f:0});
+  const tot = sumEntries(es);
   const st = prof().settings;
   // si hay briefing del coach para este día (perfil p1), sus metas mandan
   const coach = pid === "p1" ? (state.coach || {})[viewDate] : null;
@@ -945,12 +1041,15 @@ function render(){
   if($("ovWho").classList.contains("open")) renderWho(); // nombres frescos tras el primer sync
 
   $("dateLabel").textContent = fmtDate(viewDate);
+  $("dateLabel").classList.toggle("past", viewDate !== todayStr());
   $("nextDay").style.visibility = viewDate >= todayStr() ? "hidden" : "visible";
   const {es, tot, coach, goal, gp, gc, gf, bonus} = dayStats();
   loadEnergy(viewDate);
+  renderFreq();
+  renderWeek();
 
   // anillo de calorías
-  $("sumKcal").textContent = Math.round(tot.k);
+  countTo($("sumKcal"), Math.round(tot.k));
   $("goalKcal").textContent = goal;
   $("goalNote").textContent = bonus ? (bonus > 0 ? "+" : "−") + Math.abs(bonus) + " por tu actividad ⌚" : "";
   const pct = Math.min(1, tot.k/goal);
@@ -985,16 +1084,97 @@ function render(){
       ${e.img ? `<img src="${e.img}" alt="">` : `<div class="noimg">🍽️</div>`}
       <div class="info">
         <div class="name">${esc(e.name)}</div>
-        <div class="meta">${esc(e.time||"")} · P ${Math.round(e.prot)}g · C ${Math.round(e.carb)}g · G ${Math.round(e.fat)}g</div>
+        <div class="meta">${esc(e.time||"")} · P&nbsp;${Math.round(e.prot)}g · C&nbsp;${Math.round(e.carb)}g · G&nbsp;${Math.round(e.fat)}g</div>
       </div>
       <div class="kcal">${Math.round(e.kcal)} kcal</div>
       <button class="del" data-id="${esc(e.id)}" title="Eliminar">🗑</button>
     </div>`).join("");
   wrap.querySelectorAll(".del").forEach(b => b.onclick = ev => {
     ev.stopPropagation();
-    mutate([{t:"del", pid, date: viewDate, id: entryId(b.dataset.id)}]);
+    const id = entryId(b.dataset.id), e = getEntries(viewDate).find(x => x.id === id);
+    if(e) removeEntry(e, viewDate);
   });
   wrap.querySelectorAll(".entry").forEach(row => row.onclick = () => editEntry(entryId(row.dataset.id)));
+}
+
+/* el número grande del anillo cuenta hasta el nuevo valor */
+function countTo(el, to){
+  const from = Number(el.dataset.v) || 0;
+  el.dataset.v = to;
+  cancelAnimationFrame(el._raf);
+  if(from === to || matchMedia("(prefers-reduced-motion: reduce)").matches){ el.textContent = to; return; }
+  const t0 = performance.now(), dur = 450;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(from + (to - from) * e);
+    if(k < 1) el._raf = requestAnimationFrame(step);
+  };
+  el._raf = requestAnimationFrame(step);
+}
+
+/* ================= comidas frecuentes (repetir con un toque) ================= */
+let freqList = [];
+function renderFreq(){
+  const log = prof().log, map = {};
+  Object.keys(log).sort().reverse().slice(0, 60).forEach(d => (log[d] || []).slice().reverse().forEach(e => {
+    const k = String(e.name || "").trim().toLowerCase();
+    if(!k || !(Number(e.kcal) > 0)) return;
+    if(map[k]){ map[k].n++; if(!map[k].e.img && e.img) map[k].e = Object.assign({}, map[k].e, {img: e.img}); }
+    else map[k] = {n: 1, e, d};
+  }));
+  // primero lo que más repites; a igualdad, lo más reciente
+  freqList = Object.values(map).sort((a,b) => b.n - a.n || (a.d < b.d ? 1 : -1)).slice(0, 8).map(x => x.e);
+  const box = $("freqBox");
+  if(!freqList.length){ box.innerHTML = ""; return; }
+  box.innerHTML = '<div class="section-title">Repetir una comida</div><div class="freq">' + freqList.map((e, i) =>
+    `<button class="fq" data-i="${i}" title="Agregar ${attr(e.name)} (${Math.round(e.kcal)} kcal)">
+      ${e.img ? `<img src="${e.img}" alt="">` : `<span class="ph">🍽️</span>`}<span>${esc(e.name)}</span><b>${Math.round(e.kcal)}</b>
+    </button>`).join("") + "</div>";
+  box.querySelectorAll(".fq").forEach(b => b.onclick = () => {
+    const src = freqList[Number(b.dataset.i)], date = viewDate, p = pid;
+    const entry = {id: newId(), name: src.name, kcal: Number(src.kcal)||0, prot: Number(src.prot)||0, carb: Number(src.carb)||0, fat: Number(src.fat)||0, time: nowTime(), img: src.img || null};
+    mutate([{t:"add", pid: p, date, entry}]);
+    toast(src.name.slice(0, 22) + " agregado ✓", {label: "Deshacer", fn: () => mutate([{t:"del", pid: p, date, id: entry.id}])});
+  });
+}
+
+/* ================= últimos 7 días ================= */
+function renderWeek(){
+  const today = todayStr(), log = prof().log;
+  const days = [];
+  for(let i = 6; i >= 0; i--){
+    const d = shiftDate(today, -i), es = log[d] || [], t = sumEntries(es);
+    days.push({d, n: es.length, k: t.k, p: t.p, goal: baseGoal(d)});
+  }
+  const withFood = days.filter(x => x.n);
+  // racha: días seguidos con algo registrado (si hoy aún está vacío, cuenta hasta ayer)
+  let streak = 0;
+  for(let i = 0; i < 400; i++){
+    const es = log[shiftDate(today, -i)];
+    if(es && es.length) streak++; else if(i > 0) break;
+  }
+  const box = $("weekBox");
+  if(!withFood.length && !streak){ box.innerHTML = ""; return; }
+  const avg = k => withFood.length ? Math.round(withFood.reduce((a,x) => a + x[k], 0) / withFood.length) : 0;
+  const mx = Math.max(1, ...days.map(x => Math.max(x.k, x.goal))) * 1.08;
+  const fmtK = v => v >= 1000 ? (v/1000).toFixed(1).replace(".", ",") + "k" : String(Math.round(v));
+  const ini = d => { const [y,m,dd] = d.split("-").map(Number); return ["D","L","M","M","J","V","S"][new Date(y, m-1, dd).getDay()]; };
+  box.innerHTML = `<div class="section-title">Últimos 7 días</div>
+    <div class="week">
+      <div class="wkhead">
+        <div><b>${avg("k").toLocaleString("es-CL")}</b><small>kcal promedio</small></div>
+        <div><b>${avg("p")} g</b><small>proteína prom.</small></div>
+        <div><b>${streak ? "🔥 " + streak : "—"}</b><small>${streak === 1 ? "día seguido" : "días seguidos"}</small></div>
+      </div>
+      <div class="wkbars">${days.map(x => `
+        <button class="wkd${x.d === viewDate ? " sel" : ""}${x.k > x.goal * 1.05 ? " over" : ""}" data-d="${x.d}" title="${fmtDate(x.d)}: ${Math.round(x.k)} de ${x.goal} kcal">
+          <span class="v">${x.n ? fmtK(x.k) : ""}</span>
+          <span class="col"><u style="bottom:${(x.goal/mx*100).toFixed(1)}%"></u><i style="height:${(x.k/mx*100).toFixed(1)}%"></i></span>
+          <small>${ini(x.d)}</small>
+        </button>`).join("")}</div>
+      <div class="wknote">La línea punteada es tu meta · toca un día para verlo</div>
+    </div>`;
+  box.querySelectorAll(".wkd").forEach(b => b.onclick = () => { viewDate = b.dataset.d; render(); });
 }
 
 /* ================= tarjeta coach ================= */
@@ -1171,6 +1351,8 @@ function showBriefing(c){
 /* ================= navegación de fecha ================= */
 $("prevDay").onclick = () => { viewDate = shiftDate(viewDate,-1); render(); };
 $("nextDay").onclick = () => { viewDate = shiftDate(viewDate, 1); render(); };
+$("dateLabel").onclick = () => { if(viewDate !== todayStr()){ viewDate = todayStr(); render(); } };
+$("dateLabel").addEventListener("keydown", e => { if(e.key === "Enter") $("dateLabel").click(); });
 function shiftDate(ds, n){
   const [y,m,d] = ds.split("-").map(Number);
   const dt = new Date(y, m-1, d+n);
@@ -1254,7 +1436,7 @@ $("importFile").addEventListener("change", e => {
 
 /* ================= manual ================= */
 let editing = null; // entrada existente que se está corrigiendo
-function nowTime(){ return new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit"}); }
+function nowTime(){ return new Date().toLocaleTimeString("es-CL",{hour:"2-digit",minute:"2-digit",hourCycle:"h23"}); } // siempre 24 h ("17:59")
 $("btnManual").onclick = () => {
   editing = null;
   ["mName","mKcal","mProt","mCarb","mFat"].forEach(i => $(i).value="");
@@ -1271,7 +1453,7 @@ function editEntry(id){
   open("ovManual");
 }
 $("mDel").onclick = () => {
-  if(editing) mutate([{t:"del", pid, date: viewDate, id: editing.id}]);
+  if(editing) removeEntry(editing, viewDate);
   editing = null; close("ovManual");
 };
 $("mAdd").onclick = () => {
@@ -1714,6 +1896,10 @@ function renderWho(){
 /* ================= arranque ================= */
 if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
   navigator.serviceWorker.register("/sw.js").catch(() => {});
+  // la app abre desde la caché; si por detrás llegó una versión nueva, se ofrece recargar
+  navigator.serviceWorker.addEventListener("message", e => {
+    if(e.data && e.data.type === "nt-update") toast("Hay una versión nueva", {label: "Actualizar", fn: () => location.reload(), ms: 9000});
+  });
 }
 /* Nico abre la app directo en su panel Garmin (el botón ‹ del panel vuelve con ?home=1) */
 let launchChecked = new URLSearchParams(location.search).has("home");

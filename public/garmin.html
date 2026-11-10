@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#070a12">
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <title>Panel Garmin — NuTracker</title>
@@ -290,22 +292,43 @@
   .wxchips span{background:rgba(6,9,16,.5); border:1px solid var(--border); border-radius:99px; padding:5px 11px; font-size:11.5px; font-weight:600; color:#cbd5e1;}
   .wxbest{margin-top:14px; padding:12px 14px; border-radius:16px; background:rgba(45,212,191,.1); border:1px solid rgba(94,234,212,.3); font-size:13.5px; line-height:1.5;}
   .wxbest b{color:var(--accent);}
+  /* =============== mejoras: comida del día, recarga silenciosa, escritorio =============== */
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .datebar .lbl{cursor:pointer; user-select:none;}
+  .datebar .lbl.past::after{content:" · volver a hoy"; font-size:11px; color:var(--accent); font-weight:600;}
+  .iconbtn.spin{animation:spin .8s linear infinite;}
+  #root.quiet .card, #root.quiet .alert, #root.quiet .badge.got{animation:none;}
+  #root.quiet .ringbox .prog{transition:none;}
+  .card.foodc{--cc:rgba(249,168,212,.9); background:linear-gradient(160deg,rgba(249,168,212,.11),rgba(255,255,255,.03) 70%);}
+  .foodc .big{font-size:32px; font-weight:800; letter-spacing:-1px;}
+  .foodc .sub{color:var(--muted); font-size:13px;}
+  a.btn{display:block; text-align:center;}
+  .btn.soft{background:rgba(255,255,255,.07); color:var(--text); border:1px solid var(--border); box-shadow:none;}
+  /* PC: las tarjetas se reparten en dos columnas dentro de cada sección */
+  @media (min-width:1000px){
+    body{max-width:1120px; padding-left:28px; padding-right:28px;}
+    .topwrap{margin-left:-28px; margin-right:-28px; padding-left:28px; padding-right:28px;}
+    #root{column-count:2; column-gap:18px;}
+    #root>.card, #root>.alert, #wxslot>.card{break-inside:avoid;}
+    #root>.sec, #root>.state, #root>.err, #root>.foot{column-span:all;}
+    .coachlog{max-height:420px;}
+  }
 </style>
 </head>
 <body>
 
 <header class="topwrap">
   <div class="top">
-    <a class="iconbtn" href="/?home=1" title="Volver a NuTracker">‹</a>
+    <a class="iconbtn" href="/?home=1" title="Volver a NuTracker" aria-label="Volver a NuTracker">‹</a>
     <h1 style="flex:1;margin-left:12px"><span class="em">⌚</span> <span class="gt">Panel Garmin</span><small id="who">Nico</small></h1>
-    <button class="iconbtn" id="btnReload" title="Actualizar">⟳</button>
+    <button class="iconbtn" id="btnReload" title="Actualizar" aria-label="Actualizar">⟳</button>
   </div>
   <nav class="nav" id="nav"></nav>
 </header>
 <div class="datebar">
-  <button class="iconbtn" id="prev">‹</button>
-  <div class="lbl" id="dateLbl"></div>
-  <button class="iconbtn" id="next">›</button>
+  <button class="iconbtn" id="prev" aria-label="Día anterior">‹</button>
+  <div class="lbl" id="dateLbl" role="button" tabindex="0"></div>
+  <button class="iconbtn" id="next" aria-label="Día siguiente">›</button>
 </div>
 
 <div id="root"><div class="state"><div class="spinner"></div>Cargando datos de Garmin…</div></div>
@@ -330,7 +353,7 @@ const fmtDay = s => {
 };
 const short = s => { const [y,m,d] = s.split("-").map(Number); return d + "/" + m; };
 const hm = sec => { const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60); return h + "h " + pad(m) + "m"; };
-const clock = ms => new Date(ms).toLocaleTimeString("es-CL",{hour:"2-digit", minute:"2-digit"});
+const clock = ms => new Date(ms).toLocaleTimeString("es-CL",{hour:"2-digit", minute:"2-digit", hourCycle:"h23"});
 const num = (v, d) => v == null ? "—" : (d ? (Math.round(v*10**d)/10**d).toFixed(d) : Math.round(v).toLocaleString("es-CL"));
 
 const hdr = () => ({"content-type":"application/json", "x-nt-pin": localStorage.getItem("nt_pin") || ""});
@@ -343,7 +366,7 @@ function ring(value, max, color, big, small, cap){
   return `<div class="ringbox"><div class="ringwrap">
     <svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="${R}"/>
     <circle class="prog" cx="50" cy="50" r="${R}" stroke="${color}" style="--glow:${color}"
-      stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${C * (1 - pct)}"/></svg>
+      stroke-dasharray="${C}" stroke-dashoffset="${quiet ? C * (1 - pct) : C}" data-off="${C * (1 - pct)}"/></svg>
     <div class="num"><b style="color:${color}">${big}</b><small>${small}</small></div></div>
     <div class="cap">${cap}</div></div>`;
 }
@@ -578,6 +601,25 @@ function planCard(d){
     <ul class="reasons">${p.reasons.map(r => `<li>${esc(r)}</li>`).join("")}</ul></div>`;
 }
 
+/* ---------- comida del día (lo registrado en NuTracker) ---------- */
+function foodCard(d){
+  const n = d.nutrition;
+  if(!n) return "";
+  const today = date === todayS, left = n.goal - n.kcal;
+  const pct = Math.min(100, n.kcal / Math.max(1, n.goal) * 100);
+  const burned = d.day && d.day.kcalTotal;
+  return `<div class="card foodc"><h2>🍽️ Comida ${today ? "de hoy" : "del día"} <b>${n.n} ${n.n === 1 ? "registro" : "registros"}</b></h2>
+    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap"><span class="big">${num(n.kcal)}</span>
+    <span class="sub">de ${num(n.goal)} kcal · ${left >= 0 ? "quedan " + num(left) : num(-left) + " de más"}</span></div>
+    <div class="bar"><i style="width:${pct}%;background:${left < 0 ? "var(--orange)" : "var(--pink)"}"></i></div>
+    <div class="tiles" style="margin-top:14px">
+      <div class="tile"><div class="l">Proteína</div><div class="n">${num(n.prot)}<small>${n.gprot ? "/ " + num(n.gprot) + " g" : "g"}</small></div></div>
+      <div class="tile"><div class="l">Carbos</div><div class="n">${num(n.carb)}<small>g</small></div></div>
+      <div class="tile"><div class="l">Grasas</div><div class="n">${num(n.fat)}<small>g</small></div></div></div>
+    ${burned ? `<div class="note">Garmin: ${num(burned)} kcal gastadas ${today ? "hasta ahora" : "ese día"}.</div>` : ""}
+    <a class="btn${n.n ? " soft" : ""}" href="/?home=1">${today ? "＋ Registrar comida" : "Abrir NuTracker"}</a></div>`;
+}
+
 let coachMsgs = [], coachBusy = false;
 const COACH_Q = ["¿Qué entreno hoy?", "¿Cómo dormí y por qué?", "¿Qué como hoy para recuperarme?", "¿Estoy sobreentrenando?"];
 function coachCard(){
@@ -783,11 +825,24 @@ function bindSpy(){
   }, {passive:true});
 }
 
-function render(){
+function setDateBar(){
   $("dateLbl").textContent = fmtDay(date);
+  $("dateLbl").classList.toggle("past", date !== todayS);
   $("next").style.visibility = date >= todayS ? "hidden" : "visible";
+}
+/* quiet = refresco en segundo plano: sin animaciones de entrada y conservando
+ * lo que el usuario tenía a medias (pregunta al coach, entrenos abiertos, scroll) */
+let quiet = false;
+function render(isQuiet){
+  quiet = !!isQuiet;
+  setDateBar();
   const d = data;
   const r = d.recovery.score, s = d.sleep;
+  const keep = quiet ? {
+    y: window.scrollY, ask: $("coachIn") ? $("coachIn").value : "", focus: document.activeElement === $("coachIn"),
+    open: Array.from(document.querySelectorAll(".act.open")).map(a => a.dataset.i)
+  } : null;
+  $("root").classList.toggle("quiet", quiet);
   $("root").innerHTML = `
     <div id="s-hoy" style="scroll-margin-top:120px"></div>
     <div class="card hero" style="--tint:${r == null ? "rgba(94,234,212,.16)" : r >= 67 ? "rgba(74,222,128,.2)" : r >= 34 ? "rgba(252,211,77,.18)" : "rgba(248,113,113,.2)"}">${greetCard(d)}<div class="rings">
@@ -795,40 +850,82 @@ function render(){
       ${ring(s && s.score, 100, "var(--sleep)", s && s.score != null ? s.score : "—", s ? hm(s.seconds) : "", "Sueño")}
       ${ring(d.strain, 21, "var(--strain)", num(d.strain,1), "de 21", "Esfuerzo")}
     </div>${stripHtml(d)}<div class="verdict">${verdict(d)}</div></div>
-    ${alertsCard(d)}<div id="wxslot"></div>${planCard(d)}${coachCard()}
+    ${alertsCard(d)}<div id="wxslot"></div>${planCard(d)}${foodCard(d)}${coachCard()}
     ${sec("s-cuerpo","❤️","Cuerpo")}${recoveryCard(d)}${sleepCard(d)}${hrvCard(d)}${bodyBatteryCard(d)}${hrCard(d)}${dayCard(d)}
     ${sec("s-habitos","🧠","Hábitos y logros")}${journalCard(d)}${insightsCard(d)}${achievementsCard(d)}${weeklyCard()}
     ${sec("s-tend","📈","Tendencias")}${trendCard(d)}
     ${sec("s-entreno","🏋️","Entrenamientos")}${actCard(d)}
-    <div class="note" style="text-align:center">Datos de Garmin Connect · el esfuerzo y la recuperación son estimaciones propias</div>`;
+    <div class="note foot" style="text-align:center">Datos de Garmin Connect · el esfuerzo y la recuperación son estimaciones propias</div>`;
   document.querySelectorAll(".act").forEach(a => a.onclick = () => a.classList.toggle("open"));
   bindCoach(); bindJournal(d); drawHeat(d); bindWeekly(); drawWeather(); bindSpy();
-  // los anillos se llenan con animación al aparecer
-  requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll(".ringbox .prog").forEach(c => c.setAttribute("stroke-dashoffset", c.dataset.off))));
+  if(keep){
+    const inp = $("coachIn");
+    if(inp){ inp.value = keep.ask; if(keep.focus) inp.focus(); }
+    keep.open.forEach(i => { const a = document.querySelector('.act[data-i="' + i + '"]'); if(a) a.classList.add("open"); });
+    window.scrollTo(0, keep.y);
+  }else{
+    // los anillos se llenan con animación al aparecer
+    requestAnimationFrame(() => requestAnimationFrame(() => document.querySelectorAll(".ringbox .prog").forEach(c => c.setAttribute("stroke-dashoffset", c.dataset.off))));
+  }
 }
 
-async function load(){
+/* Copia local del último panel de hoy: al abrir la app se muestra al instante
+ * (Garmin + el servidor dormido pueden tardar varios segundos) y se refresca por detrás. */
+const CK = "nt_garmin_cache";
+function readCache(dt){ try{ const c = JSON.parse(localStorage.getItem(CK)); return c && c.date === dt && c.data ? c : null; }catch(e){ return null; } }
+function writeCache(dt, j){ try{ localStorage.setItem(CK, JSON.stringify({date: dt, t: Date.now(), data: j})); }catch(e){} }
+function stamp(t, stale){ $("who").textContent = "Nico · " + (stale ? "datos de las " : "actualizado ") + clock(t); }
+
+let shownDate = null, loadedAt = 0, lastTxt = "";
+/* silent = refrescar sin borrar lo que ya está en pantalla */
+async function load(silent){
   const my = ++seq;
-  weeklyText = null;
-  $("dateLbl").textContent = fmtDay(date);
-  $("next").style.visibility = date >= todayS ? "hidden" : "visible";
-  $("root").innerHTML = '<div class="state"><div class="spinner"></div>Cargando datos de Garmin…</div>';
+  silent = !!silent && shownDate === date;
+  setDateBar();
+  if(!silent){
+    weeklyText = null; lastTxt = ""; shownDate = null;
+    const c = readCache(date);
+    if(c){ data = c.data; shownDate = date; render(); stamp(c.t, true); }
+    else{ $("who").textContent = "Nico"; $("root").innerHTML = '<div class="state"><div class="spinner"></div>Cargando datos de Garmin…</div>'; }
+  }
+  $("btnReload").classList.add("spin");
   try{
     const resp = await fetch("/api/garmin?date=" + date, {headers: hdr()});
     if(my !== seq) return;
     if(resp.status === 401) throw new Error("Necesitas el PIN de acceso: ábrelo primero desde NuTracker (pantalla principal) y vuelve.");
     const j = await resp.json().catch(() => ({}));
+    if(my !== seq) return;
     if(!resp.ok) throw new Error(j.error || ("Error " + resp.status));
-    data = j; render();
+    const txt = JSON.stringify(j), had = shownDate === date;
+    if(date === todayS) writeCache(date, j);
+    if(!had || txt !== lastTxt){ data = j; render(had); }
+    lastTxt = txt; shownDate = date; loadedAt = Date.now();
+    stamp(loadedAt, false);
   }catch(e){
     if(my !== seq) return;
-    $("root").innerHTML = '<div class="err">⚠️ ' + esc(e.message || e) + '</div><div class="state"><a class="iconbtn" style="width:auto;padding:0 18px;display:inline-flex" href="/?home=1">Volver</a></div>';
+    // con datos en pantalla, un fallo de red no los borra: solo queda la hora de la copia
+    if(shownDate !== date) $("root").innerHTML = '<div class="err">⚠️ ' + esc(e.message || e) + '</div><div class="state"><a class="iconbtn" style="width:auto;padding:0 18px;display:inline-flex" href="/?home=1">Volver</a></div>';
+  }finally{
+    if(my === seq) $("btnReload").classList.remove("spin");
   }
 }
 buildNav();
 $("prev").onclick = () => { date = shift(date, -1); load(); };
 $("next").onclick = () => { if(date < todayS){ date = shift(date, 1); load(); } };
-$("btnReload").onclick = load;
+$("dateLbl").onclick = () => { if(date !== todayS){ date = todayS; load(); } };
+$("dateLbl").addEventListener("keydown", e => { if(e.key === "Enter") $("dateLbl").click(); });
+$("btnReload").onclick = () => load(true);
+// al volver a la app después de un rato, los datos se refrescan solos
+document.addEventListener("visibilitychange", () => {
+  if(!document.hidden && shownDate === date && Date.now() - loadedAt > 5 * 60e3){ load(true); loadWeather(); }
+});
+// si el service worker bajó una versión nueva de la página, recargar (salvo en medio de una conversación)
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.addEventListener("message", e => {
+    const typing = $("coachIn") && $("coachIn").value;
+    if(e.data && e.data.type === "nt-update" && !coachMsgs.length && !coachBusy && !typing) location.reload();
+  });
+}
 load();
 loadWeather();
 })();
