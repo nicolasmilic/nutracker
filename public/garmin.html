@@ -303,6 +303,16 @@
   .foodc .big{font-size:32px; font-weight:800; letter-spacing:-1px;}
   .foodc .sub{color:var(--muted); font-size:13px;}
   a.btn{display:block; text-align:center;}
+  .split{display:flex; height:6px; border-radius:99px; overflow:hidden; gap:2px; margin-top:8px;}
+  .split i{display:block; height:100%;}
+  .mus{margin-top:12px; padding:12px; border-radius:16px; background:rgba(167,139,250,.08); border:1px solid rgba(167,139,250,.25);}
+  .mus .mt{display:flex; justify-content:space-between; font-size:13px; font-weight:700;}
+  .mus .mt b{color:var(--sleep);}
+  .rpe{display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:4px; margin-top:10px;}
+  .rpe button{background:rgba(6,9,16,.5); border:1px solid var(--border); color:var(--muted); border-radius:10px; padding:8px 0; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;}
+  .rpe button.on{background:rgba(167,139,250,.25); border-color:var(--sleep); color:#fff;}
+  .rpe button:disabled{opacity:.5;}
+  .rpeleg{display:flex; justify-content:space-between; font-size:10.5px; color:var(--muted); margin-top:4px;}
   .btn.soft{background:rgba(255,255,255,.07); color:var(--text); border:1px solid var(--border); box-shadow:none;}
   /* PC: las tarjetas se reparten en dos columnas dentro de cada sección */
   @media (min-width:1000px){
@@ -440,7 +450,9 @@ function verdict(d){
   if(r >= 67){ txt = "Tu cuerpo está <b style='color:var(--green)'>bien recuperado</b>. Buen día para entrenar fuerte."; lo = 14; hi = 18; }
   else if(r >= 34){ txt = "Recuperación <b style='color:var(--yellow)'>moderada</b>. Entrena, pero controlando la intensidad."; lo = 10; hi = 14; }
   else { txt = "Recuperación <b style='color:var(--red)'>baja</b>. Prioriza descanso y movimiento suave."; lo = 4; hi = 10; }
-  return txt + `<br><span style="color:var(--muted)">Esfuerzo sugerido: <b style="color:var(--text)">${lo}–${hi}</b> · llevas <b style="color:var(--text)">${num(st,1)}</b></span>`;
+  const mus = d.strainMuscle > 0
+    ? `<br><span style="color:var(--muted)">Tu esfuerzo: cardio <b style="color:var(--strain)">${num(d.strainCardio||0,1)}</b> + pesas <b style="color:var(--sleep)">${num(d.strainMuscle,1)}</b></span>` : "";
+  return txt + `<br><span style="color:var(--muted)">Esfuerzo sugerido: <b style="color:var(--text)">${lo}–${hi}</b> · llevas <b style="color:var(--text)">${num(st,1)}</b></span>` + mus;
 }
 
 function recoveryCard(d){
@@ -551,7 +563,8 @@ function trendCard(d){
     <h3>Recuperación <span>prom. ${num(avg("recovery"))}%</span></h3>${bars(t.map(x => x.recovery), {max:100, color:v => recColor(v), labels:lab})}
     <h3>HRV nocturna <span>prom. ${num(avg("hrv"))} ms</span></h3>${line(t.map((x,i) => [i, x.hrv]), {color:"#5eead4", dots:true, id:4, ticks:[[0,lab[0]],[Math.floor(t.length/2),lab[Math.floor(t.length/2)]],[t.length-1,lab[t.length-1]]]})}
     <h3>Sueño <span>prom. ${num(avg("sleepHours"),1)} h</span></h3>${bars(t.map(x => x.sleepHours), {max:10, color:"#a78bfa", labels:lab})}
-    <h3>Esfuerzo estimado <span>prom. ${num(avg("strain"),1)}</span></h3>${bars(t.map(x => x.strain), {max:21, color:"#60a5fa", labels:lab})}
+    <h3>Esfuerzo estimado <span>prom. ${num(avg("strain"),1)}</span></h3>${bars(t.map(x => x.strain), {max:21, color:(v,i) => t[i].strainMuscle > 0 ? "#a78bfa" : "#60a5fa", labels:lab})}
+    <div class="legend" style="margin-top:2px"><span><i style="background:#60a5fa"></i>solo cardio</span><span><i style="background:#a78bfa"></i>incluye pesas</span></div>
     <h3>FC en reposo <span>prom. ${num(avg("rhr"),1)} lpm</span></h3>${line(t.map((x,i) => [i, x.rhr]), {color:"#f87171", dots:true, id:5, ticks:[[0,lab[0]],[Math.floor(t.length/2),lab[Math.floor(t.length/2)]],[t.length-1,lab[t.length-1]]]})}
     <h3>Pasos <span>prom. ${num(avg("steps"))}</span></h3>${bars(t.map(x => x.steps), {color:(v,i) => t[i].stepGoal && v >= t[i].stepGoal ? "#4ade80" : "#5eead4", labels:lab})}
     <h3>Estrés <span>prom. ${num(avg("stress"))}</span></h3>${bars(t.map(x => x.stress), {max:100, color:"#fb923c", labels:lab})}
@@ -560,6 +573,29 @@ function trendCard(d){
   </div>`;
 }
 
+const SRC_TXT = {rpe: "según lo duro que dijiste que fue", te: "según el efecto anaeróbico de Garmin", base: "intensidad típica (dime qué tan duro fue)"};
+function muscleBox(a){
+  const m = a.muscle;
+  return `<div class="mus">
+    <div class="mt"><span>💪 Carga muscular</span><b>${num(m.pts)} pts</b></div>
+    <div class="note" style="margin-top:4px">${m.estSets ? "≈" : ""}${m.sets} series${m.estSets ? " (estimadas por la duración)" : ""} × intensidad ${num(m.factor,1).replace(".", ",")} · ${SRC_TXT[m.src]}</div>
+    <div class="note" style="margin-top:10px;color:var(--text)">¿Qué tan dura fue la sesión?</div>
+    <div class="rpe" data-id="${esc(a.id)}">${[1,2,3,4,5,6,7,8,9,10].map(v => `<button data-v="${v}" class="${m.rpe === v ? "on" : ""}">${v}</button>`).join("")}</div>
+    <div class="rpeleg"><span>muy suave</span><span>7 = normal</span><span>al fallo</span></div></div>`;
+}
+function bindRpe(){
+  document.querySelectorAll(".rpe button").forEach(b => b.onclick = async ev => {
+    ev.stopPropagation();
+    const box = b.parentElement, id = box.dataset.id, v = Number(b.dataset.v);
+    const again = b.classList.contains("on"); // tocar el mismo número lo borra
+    box.querySelectorAll("button").forEach(x => { x.disabled = true; x.classList.toggle("on", !again && x === b); });
+    try{
+      const resp = await fetch("/api/sync", {method:"POST", headers: hdr(), body: JSON.stringify({ops:[{t:"rpe", pid:"p1", id, v: again ? null : v}]})});
+      if(!resp.ok) throw new Error();
+      load(true); // recalcula el esfuerzo con la nueva intensidad
+    }catch(e){ box.querySelectorAll("button").forEach(x => { x.disabled = false; }); }
+  });
+}
 function actCard(d){
   if(!d.activities.length) return "";
   const zones = d.hrZones;
@@ -579,6 +615,7 @@ function actCard(d){
           <div class="tile"><div class="l">BB</div><div class="n">${a.bbImpact != null ? a.bbImpact : "—"}</div></div></div>
         ${a.aerobicTE != null ? `<div class="note">Efecto de entrenamiento: aeróbico ${num(a.aerobicTE,1)} · anaeróbico ${num(a.anaerobicTE,1)}${a.teLabel ? " · " + esc(a.teLabel.replace(/_/g," ").toLowerCase()) : ""}</div>` : ""}
         ${a.sets ? `<div class="note">${a.sets} series · ${a.reps||0} repeticiones</div>` : ""}
+        ${a.muscle ? muscleBox(a) : ""}
         <div class="zbar">${a.zones.map((z,k) => `<div style="width:${z/zt*100}%;background:${ZCOL[k]}"></div>`).join("")}</div>
         <div class="legend" style="margin-top:8px">${a.zones.map((z,k) => z > 0 ? `<span><i style="background:${ZCOL[k]}"></i>Z${k+1} ${hm(z)}</span>` : "").join("")}</div>
       </div></div>`;
@@ -856,8 +893,8 @@ function render(isQuiet){
     ${sec("s-tend","📈","Tendencias")}${trendCard(d)}
     ${sec("s-entreno","🏋️","Entrenamientos")}${actCard(d)}
     <div class="note foot" style="text-align:center">Datos de Garmin Connect · el esfuerzo y la recuperación son estimaciones propias</div>`;
-  document.querySelectorAll(".act").forEach(a => a.onclick = () => a.classList.toggle("open"));
-  bindCoach(); bindJournal(d); drawHeat(d); bindWeekly(); drawWeather(); bindSpy();
+  document.querySelectorAll(".act").forEach(a => a.onclick = e => { if(!e.target.closest(".mus")) a.classList.toggle("open"); });
+  bindCoach(); bindJournal(d); drawHeat(d); bindWeekly(); drawWeather(); bindSpy(); bindRpe();
   if(keep){
     const inp = $("coachIn");
     if(inp){ inp.value = keep.ask; if(keep.focus) inp.focus(); }

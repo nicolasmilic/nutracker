@@ -122,7 +122,7 @@ async function getDay(date) {
     safe(`/wellness-service/wellness/dailyHeartRate?date=${date}`),
     ranged((a, b) => `/usersummary-service/v2/dailysummaries?startDate=${a}&endDate=${b}`, from, date, mergeDs),
     ranged((a, b) => `/sleep-service/sleep/dailySleepSummariesByDate?startDate=${a}&endDate=${b}`, from, date, mergeArr),
-    safe(`/activitylist-service/activities/search/activities?start=0&limit=40`),
+    safe(`/activitylist-service/activities/search/activities?start=0&limit=60`),
     safe(`/biometric-service/heartRateZones/v2`)
   ]);
   if (!summary && !sleep && !ds) throw new Error("Garmin no devolvió datos para esa fecha.");
@@ -166,7 +166,9 @@ async function getDay(date) {
       steps: s.movement && s.movement.steps ? s.movement.steps.value : null,
       stepGoal: s.movement && s.movement.steps ? s.movement.steps.goal : null,
       stress: s.stress ? s.stress.avgLevel : null,
-      strain: s.intensityMinutes ? strain(im.moderate, im.vigorous) : null
+      strain: s.intensityMinutes ? strain(im.moderate, im.vigorous) : null,
+      // minutos de intensidad ponderados (moderados + 2× vigorosos): coach.js les suma la carga de pesas
+      im: s.intensityMinutes ? (im.moderate || 0) + 2 * (im.vigorous || 0) : null
     });
   }
   const today = days[days.length - 1];
@@ -211,7 +213,7 @@ async function getDay(date) {
 
   /* actividades recientes */
   const z = Array.isArray(zones) && zones[0] ? zones[0] : null;
-  const activities = (Array.isArray(acts) ? acts : []).slice(0, 40).map(a => ({
+  const activities = (Array.isArray(acts) ? acts : []).slice(0, 60).map(a => ({
     id: a.activityId,
     name: a.activityName,
     type: a.activityType && a.activityType.typeKey,

@@ -111,6 +111,11 @@ function applyOp(op) {
     const day = (j[op.date] = j[op.date] || {});
     if (op.on) day[op.key] = true; else delete day[op.key];
     Object.keys(j).sort().slice(0, -120).forEach(d => delete j[d]);
+  } else if (op.t === "rpe" && prof && op.id != null && String(op.id).length <= 24) {
+    // qué tan dura fue una sesión de pesas (1-10): ajusta su carga muscular estimada
+    const r = (prof.rpe = prof.rpe || {}), v = Math.round(Number(op.v));
+    if (v >= 1 && v <= 10) r[op.id] = v; else delete r[op.id];
+    Object.keys(r).slice(0, -200).forEach(k => delete r[k]);
   } else if (op.t === "rename" && prof && typeof op.name === "string" && op.name.trim()) {
     prof.name = op.name.trim().slice(0, 20);
   } else if (op.t === "key" && typeof op.key === "string" && op.key.trim()) {

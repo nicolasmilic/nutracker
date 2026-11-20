@@ -155,6 +155,52 @@ function alerts(trend) {
   return out;
 }
 
+/* ---------- carga muscular de las pesas ----------
+ * El esfuerzo de Garmin sale de los minutos de intensidad (frecuencia cardíaca):
+ * una serie pesada de 8 repeticiones casi no sube el pulso, así que una sesión
+ * de fuerza dura queda como "esfuerzo bajo". Aquí se le suma una carga muscular
+ * estimada por sesión (idea de "session-RPE", Foster 2001):
+ *   puntos = series de trabajo × 4,5 × intensidad
+ * La intensidad sale, en orden de preferencia, de lo duro que dijiste que fue
+ * (RPE 1-10, 7 = sesión típica), del efecto anaeróbico de Garmin, o vale 1.
+ * Los puntos se suman a los minutos de intensidad antes de pasar a la escala 0-21,
+ * así una sesión normal de 18 series + 20 min de pulso alto da ≈ 14. */
+const PTS_PER_SET = 4.5;
+const strainOf = x => Math.round(21 * (1 - Math.exp(-Math.max(0, x) / 90)) * 10) / 10;
+const isStrength = a => STRENGTH.includes(a.type) || a.sets > 0;
+function sessionMuscle(a, rpe) {
+  const min = (a.duration || 0) / 60;
+  const estSets = !(a.sets > 0);
+  const sets = estSets ? Math.max(1, Math.round(min / 3)) : a.sets; // sin series registradas: ~1 cada 3 min
+  let factor, src;
+  if (rpe >= 1 && rpe <= 10) { factor = rpe / 7; src = "rpe"; }
+  else if (a.anaerobicTE != null && a.anaerobicTE > 0) { factor = Math.max(.6, Math.min(1.4, .6 + .2 * a.anaerobicTE)); src = "te"; }
+  else { factor = 1; src = "base"; }
+  return { sets, estSets, factor: r1(factor), src, rpe: src === "rpe" ? rpe : null, pts: r1(sets * PTS_PER_SET * factor) };
+}
+function applyMuscle(g, prof) {
+  if (g._muscle) return;
+  g._muscle = true;
+  const rpes = (prof && prof.rpe) || {}, byDay = {};
+  (g.activities || []).forEach(a => {
+    if (!a.start || !isStrength(a)) return;
+    a.muscle = sessionMuscle(a, Number(rpes[a.id]) || null);
+    const d = a.start.slice(0, 10);
+    byDay[d] = (byDay[d] || 0) + a.muscle.pts;
+  });
+  g.trend.forEach(d => {
+    const pts = byDay[d.date] || 0;
+    d.strainCardio = d.strain;
+    if (!pts) { d.strainMuscle = d.strain == null ? null : 0; return; }
+    d.strain = strainOf((d.im || 0) + pts);
+    d.strainMuscle = r1(d.strain - (d.strainCardio || 0)); // lo que suman las pesas (la escala satura)
+  });
+  const today = g.trend[g.trend.length - 1];
+  g.strain = today.strain;
+  g.strainCardio = today.strainCardio;
+  g.strainMuscle = today.strainMuscle;
+}
+
 /* ---------- plan de entrenamiento del día ---------- */
 const STRENGTH = ["strength_training"];
 function plan(g, alertList) {
@@ -208,7 +254,8 @@ function contextText(g, prof, extra) {
   const t = g.trend, today = t[t.length - 1], L = [];
   const log = (prof && prof.log) || {};
   L.push("Datos Garmin de " + g.date + ":");
-  L.push("- Recuperación estimada: " + (today.recovery != null ? today.recovery + "%" : "sin datos") + " | esfuerzo estimado: " + r1(g.strain) + "/21");
+  L.push("- Recuperación estimada: " + (today.recovery != null ? today.recovery + "%" : "sin datos") + " | esfuerzo estimado: " + r1(g.strain) + "/21" +
+    (g.strainMuscle ? " (cardio " + r1(g.strainCardio || 0) + " + pesas " + r1(g.strainMuscle) + "; las pesas se estiman por series e intensidad porque Garmin solo mide el pulso)" : ""));
   if (g.sleep) L.push("- Sueño: " + r1(g.sleep.seconds / 3600) + " h, puntaje " + g.sleep.score + ", profundo " + r0((g.sleep.deep || 0) / 60) + " min, REM " + r0((g.sleep.rem || 0) / 60) + " min, " + g.sleep.awakeCount + " despertares");
   if (g.hrv && g.hrv.last != null) L.push("- HRV anoche " + g.hrv.last + " ms (promedio semanal " + g.hrv.weekly + ", rango normal " + g.hrv.low + "–" + g.hrv.high + ")");
   L.push("- FC en reposo " + g.heartRate.resting + " lpm | Body Battery al despertar " + g.bodyBattery.wake + ", ahora " + g.bodyBattery.now);
@@ -216,7 +263,8 @@ function contextText(g, prof, extra) {
   const wk = t.slice(-7);
   L.push("- Últimos 7 días (prom.): recuperación " + r0(avg(wk.map(d => d.recovery))) + "%, sueño " + r1(avg(wk.map(d => d.sleepHours))) + " h, HRV " + r0(avg(wk.map(d => d.hrv))) + " ms, esfuerzo " + r1(avg(wk.map(d => d.strain))));
   const acts = (g.activities || []).filter(a => a.start && a.start.slice(0, 10) >= addDays(g.date, -6)).slice(0, 8);
-  if (acts.length) L.push("- Entrenamientos recientes: " + acts.map(a => a.name + " (" + a.start.slice(0, 10) + ", " + r0(a.duration / 60) + " min, " + r0(a.calories) + " kcal)").join("; "));
+  if (acts.length) L.push("- Entrenamientos recientes: " + acts.map(a => a.name + " (" + a.start.slice(0, 10) + ", " + r0(a.duration / 60) + " min, " + r0(a.calories) + " kcal" +
+    (a.muscle ? ", " + a.muscle.sets + " series" + (a.muscle.rpe ? ", RPE " + a.muscle.rpe + "/10" : "") : "") + ")").join("; "));
   const nut = dayNutrition(log[g.date]);
   L.push("- Comida registrada ese día: " + (nut ? r0(nut.kcal) + " kcal, P " + r0(nut.prot) + " g, C " + r0(nut.carb) + " g, G " + r0(nut.fat) + " g" + (nut.last != null ? ", última comida " + fmtHour(nut.last) : "") : "nada todavía"));
   const jr = prof && prof.journal && prof.journal[g.date];
@@ -229,6 +277,7 @@ function contextText(g, prof, extra) {
 
 /* ---------- estadísticas de la semana (para el resumen con IA) ---------- */
 function weekStats(g, prof) {
+  applyMuscle(g, prof);
   const t = g.trend, log = (prof && prof.log) || {};
   const wk = t.slice(-7), prev = t.slice(-14, -7);
   const nutr = days => days.map(d => dayNutrition(log[d.date])).filter(Boolean);
@@ -237,7 +286,9 @@ function weekStats(g, prof) {
     return {
       recuperacion: r0(avg(days.map(d => d.recovery))), sueno_h: r1(avg(days.map(d => d.sleepHours))), puntaje_sueno: r0(avg(days.map(d => d.sleepScore))),
       hrv: r0(avg(days.map(d => d.hrv))), fc_reposo: r1(avg(days.map(d => d.rhr))), pasos: r0(avg(days.map(d => d.steps))),
-      esfuerzo: r1(avg(days.map(d => d.strain))), estres: r0(avg(days.map(d => d.stress))),
+      esfuerzo: r1(avg(days.map(d => d.strain))), esfuerzo_pesas: r1(avg(days.map(d => d.strainMuscle))),
+      series_pesas: (g.activities || []).filter(a => a.muscle && a.start.slice(0, 10) >= days[0].date && a.start.slice(0, 10) <= days[days.length - 1].date).reduce((s, a) => s + a.muscle.sets, 0),
+      estres: r0(avg(days.map(d => d.stress))),
       dias_con_comida_registrada: n.length, kcal_comidas: n.length ? r0(avg(n.map(x => x.kcal))) : null, proteina_g: n.length ? r0(avg(n.map(x => x.prot))) : null,
       kcal_gastadas: r0(avg(days.map(d => d.kcalTotal)))
     };
@@ -255,6 +306,7 @@ function weekStats(g, prof) {
 
 /* ---------- API para el servidor ---------- */
 function analyze(g, prof) {
+  applyMuscle(g, prof);
   const jr = (prof && prof.journal) || {}, log = (prof && prof.log) || {};
   g.trend.forEach(d => { const n = dayNutrition(log[d.date]); d.kcalIn = n ? r0(n.kcal) : null; d.protIn = n ? r0(n.prot) : null; });
   const alertList = alerts(g.trend);
