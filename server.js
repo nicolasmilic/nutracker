@@ -111,6 +111,8 @@ function applyOp(op) {
     const day = (j[op.date] = j[op.date] || {});
     if (op.on) day[op.key] = true; else delete day[op.key];
     Object.keys(j).sort().slice(0, -120).forEach(d => delete j[d]);
+  } else if (op.t === "prefs" && prof && op.prefs && typeof op.prefs === "object") {
+    prof.prefs = cleanPrefs(op.prefs);
   } else if (op.t === "rpe" && prof && op.id != null && String(op.id).length <= 24) {
     // qué tan dura fue una sesión de pesas (1-10): ajusta su carga muscular estimada
     const r = (prof.rpe = prof.rpe || {}), v = Math.round(Number(op.v));
@@ -125,6 +127,36 @@ function applyOp(op) {
     const ch = (state.coach[op.date].checks = state.coach[op.date].checks || {});
     if (op.done) ch[op.key] = true; else delete ch[op.key];
   }
+}
+
+/* gustos de comida por perfil: favoritos por momento del día + notas libres + enfoque a seguir */
+const MOMENTOS = ["desayuno", "almuerzo", "once", "cena", "snack"];
+function cleanPrefs(p) {
+  const str = (v, max) => typeof v === "string" ? v.trim().slice(0, max) : "";
+  const fav = {};
+  MOMENTOS.forEach(m => {
+    const arr = Array.isArray(p.fav && p.fav[m]) ? p.fav[m] : [];
+    const seen = new Set();
+    fav[m] = arr.map(x => str(x, 60)).filter(x => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase())).slice(0, 15);
+  });
+  return { fav, notes: str(p.notes, 600), approach: str(p.approach, 1500) };
+}
+/* qué suele comer en cada momento del día según su propio registro (últimos 45 días) */
+const momentoDe = h => h == null ? null : h < 11 ? "desayuno" : h < 16 ? "almuerzo" : h < 20 ? "once" : "cena";
+function habitual(prof) {
+  const cutoff = new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10), by = {};
+  Object.keys(prof.log || {}).filter(d => d >= cutoff).forEach(d => (prof.log[d] || []).forEach(e => {
+    const m = momentoDe(coach.parseTime(e.time)), k = String(e.name || "").trim();
+    if (!m || !k) return;
+    const b = (by[m] = by[m] || {}), key = k.toLowerCase();
+    b[key] = b[key] || { name: k.slice(0, 50), n: 0 };
+    b[key].n++;
+  }));
+  const out = {};
+  Object.keys(by).forEach(m => {
+    out[m] = Object.values(by[m]).filter(x => x.n >= 2).sort((a, b) => b.n - a.n).slice(0, 5).map(x => x.name + " ×" + x.n);
+  });
+  return out;
 }
 
 function aiKey() {
@@ -316,16 +348,24 @@ function analyze(body, cb) {
   askAI({ prompt, image: body.image, mediaType: body.mediaType }, cb);
 }
 
-/* conversación: el usuario cuenta en texto libre lo que comió */
-const CHAT_PROMPT = `Eres el asistente de un tracker de calorías. El usuario te cuenta en lenguaje natural lo que comió o bebió; tú estimas calorías y macros y él las confirma para guardarlas.
+/* conversación: el usuario cuenta en texto libre lo que comió o le pide ideas al nutricionista */
+const CHAT_PROMPT = `Eres el nutricionista personal del usuario dentro de su tracker de calorías. Haces dos cosas:
+1) Registrar: el usuario te cuenta lo que comió o bebió; estimas calorías y macros y él las confirma.
+2) Aconsejar: le dices qué comer ahora o qué añadir, según lo que ya comió hoy, lo que le falta, la hora y sus gustos.
+Hablas en español de Chile, cercano y práctico, como un nutricionista deportivo que también cocina.
 
 Responde SOLO con JSON válido, sin markdown, con esta estructura:
 {
-  "respuesta": "mensaje breve y amable en español (1-2 frases)",
+  "respuesta": "mensaje breve y amable (1-3 frases)",
   "comidas": [
     {"nombre": "alimento o plato", "porcion": "cantidad estimada", "kcal": 0, "prot": 0, "carb": 0, "grasa": 0}
   ],
-  "sugerencias": []
+  "sugerencias": [
+    {"nombre": "idea", "porcion": "cantidad", "kcal": 0, "prot": 0, "carb": 0, "grasa": 0, "receta": "ingredientes con cantidades y 1-2 pasos (solo si se cocina)"}
+  ],
+  "preferencias": [
+    {"momento": "desayuno|almuerzo|once|cena|snack|general", "texto": "gusto o restricción en pocas palabras"}
+  ]
 }
 
 Reglas:
@@ -333,7 +373,13 @@ Reglas:
 - Si el usuario corrige algo ("eran 2, no 3"), devuelve la versión corregida en "comidas".
 - Si solo pregunta o conversa, deja "comidas" vacío y contesta en "respuesta".
 - Si pide recomendaciones de qué comer, usa el bloque "Metas y consumo de hoy": propón 2 o 3 ideas concretas y realistas (comida chilena cotidiana, acorde a la hora del día) que calcen con las calorías restantes y prioricen el macro que más falta (sobre todo proteína). Ponlas en "sugerencias" (mismo formato que "comidas", con porción y macros) — NO en "comidas", porque aún no las ha comido — y explica en "respuesta" en 1-2 frases por qué. Si ya superó su meta, dilo con tacto y sugiere algo liviano.
-- Si no da cantidades usa porciones típicas chilenas y dilo en la respuesta. Macros en gramos.`;
+- Al recomendar: parte por los FAVORITOS del momento del día actual y por lo que suele comer (bloque "Gustos"); ajusta la porción para que calce con lo que le queda y, si conviene, propón una variante (p. ej. avocado toast con huevo para sumar proteína). Completa con 1 idea nueva parecida a sus gustos. Varía: no repitas lo que ya comió hoy.
+- Criterios: reparte la proteína en el día (25-40 g por comida principal), prioriza comida real, fibra y verduras; carbohidratos alrededor del entrenamiento; cerca de dormir, algo liviano.
+- Si el bloque "Gustos" trae un "Enfoque que sigue", respétalo por sobre estos criterios generales.
+- Si la idea se cocina (panqueques, carrot cake proteico, avocado toast…), pon en "receta" los ingredientes con cantidades y 1-2 pasos cortos. Si es algo que se compra o arma sin cocinar, deja "receta" vacío.
+- Si el usuario cuenta un gusto, costumbre o restricción ("en las mañanas me gusta…", "no como cerdo", "me encanta el carrot cake"), agrégalo en "preferencias" para que él decida si guardarlo. No repitas lo que ya está en sus gustos.
+- Si no da cantidades usa porciones típicas chilenas y dilo en la respuesta. Macros en gramos.
+- No eres médico: ante síntomas, embarazo o enfermedades, sugiere ver a un profesional.`;
 
 /* ---------- coach y resumen semanal (solo perfil p1 = Nico) ---------- */
 const COACH_PROMPT = `Eres el coach personal de entrenamiento, sueño y nutrición de Nico. Respondes en español, de forma cercana y concreta (máximo 130 palabras, sin relleno).
@@ -400,8 +446,22 @@ function chat(body, cb) {
       "- Carbos: " + (n(st.carb) || 0) + " g" + (n(st.gcarb) ? " de " + n(st.gcarb) + " g" : "") + "\n" +
       "- Grasas: " + (n(st.fat) || 0) + " g" + (n(st.gfat) ? " de " + n(st.gfat) + " g" : "");
   }
-  const build = garminCtx => CHAT_PROMPT + goals + garminCtx + "\n\nYa registrado hoy:\n" + (today || "(nada todavía)") + "\n\nConversación:\n" + transcript + "\nAsistente:";
-  const send = garminCtx => askAI({ prompt: build(garminCtx), maxTokens: 1500, fast: true }, cb);
+  const pr = state.profiles[body.pid];
+  let gustos = "";
+  if (pr) {
+    const pf = pr.prefs || {}, fav = pf.fav || {}, hab = habitual(pr), L = [];
+    const mom = MOMENTOS.includes(st && st.momento) ? st.momento : null;
+    if (mom) L.push("- Momento del día ahora: " + mom);
+    MOMENTOS.forEach(m => {
+      const f = (fav[m] || []).join(", "), h = (hab[m] || []).join(", ");
+      if (f || h) L.push("- " + m + (m === mom ? " (AHORA)" : "") + ": " + (f ? "favoritos: " + f : "") + (f && h ? " | " : "") + (h ? "suele registrar: " + h : ""));
+    });
+    if (pf.notes) L.push("- Notas: " + pf.notes);
+    if (pf.approach) L.push("- Enfoque que sigue (respétalo): " + pf.approach);
+    if (L.length) gustos = "\n\nGustos de " + String(pr.name || "el usuario").slice(0, 20) + ":\n" + L.join("\n");
+  }
+  const build = garminCtx => CHAT_PROMPT + goals + gustos + garminCtx + "\n\nYa registrado hoy:\n" + (today || "(nada todavía)") + "\n\nConversación:\n" + transcript + "\nAsistente:";
+  const send = garminCtx => askAI({ prompt: build(garminCtx), maxTokens: 2200, fast: true }, cb);
   // Nico: la IA también ve su recuperación, sueño y entrenos para recomendar comida con criterio
   if (body.pid === "p1" && garmin.enabled()) {
     const date = validDate(body.date);

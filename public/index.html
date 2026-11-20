@@ -607,6 +607,33 @@
     .sheet::before{display:none;}
     #ovChat .chatsheet{height:min(720px, calc(var(--vvh,100vh) - 60px));}
   }
+  /* nutricionista: encabezado, preguntas rápidas, recetas, gustos */
+  .chathead{display:flex; align-items:center; gap:10px; margin-right:40px; margin-bottom:10px;}
+  .chathead h2{margin-bottom:0; flex:1;}
+  .gustosbtn{background:rgba(249,168,212,.1); border:1px solid rgba(249,168,212,.35); color:var(--fat); border-radius:99px; padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;}
+  .chatchips{display:flex; gap:6px; overflow-x:auto; padding:8px 0 4px; margin:0 -20px; padding-left:20px; padding-right:20px; scrollbar-width:none;}
+  .chatchips button{flex-shrink:0; background:rgba(6,9,16,.5); border:1px solid var(--border); color:var(--accent); border-radius:99px; padding:8px 12px; font-size:12.5px; font-weight:600; cursor:pointer;}
+  .chatchips button:active{transform:scale(.96);}
+  .sug{padding:4px 0 8px; border-bottom:1px solid var(--border);}
+  .sug:last-child{border-bottom:none; padding-bottom:0;}
+  .sact{color:var(--accent); font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap;}
+  .sact.fav{color:var(--fat); display:inline-block; margin-top:4px;}
+  .receta{margin-top:4px; font-size:12.5px; line-height:1.55;}
+  .receta summary{color:var(--carb); font-weight:700; cursor:pointer; list-style:none;}
+  .receta summary::-webkit-details-marker{display:none;}
+  .receta div{white-space:pre-wrap; color:var(--text); background:rgba(255,255,255,.04); border-radius:12px; padding:9px 11px; margin-top:6px;}
+  .pmom{padding:12px 0; border-bottom:1px solid var(--border);}
+  .pmh{font-weight:700; font-size:14px; margin-bottom:8px;}
+  .pchips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;}
+  .pchip{display:inline-flex; align-items:center; gap:6px; border-radius:99px; padding:6px 11px; font-size:12.5px; font-weight:600; border:1px solid var(--border); background:rgba(6,9,16,.5); color:var(--muted); cursor:pointer;}
+  .pchip.on{background:rgba(249,168,212,.12); border-color:rgba(249,168,212,.4); color:var(--text); cursor:default;}
+  .pchip.on button{background:none; border:none; color:var(--muted); cursor:pointer; font-size:12px; padding:0 0 0 2px;}
+  .pchip.add{border-style:dashed;}
+  .pempty{font-size:12px; color:var(--muted); font-style:italic;}
+  .padd{display:flex; gap:8px;}
+  .padd input{padding:9px 11px !important; font-size:14px !important;}
+  .padd button{background:var(--accent-dim); border:1px solid rgba(94,234,212,.4); color:var(--accent); border-radius:12px; padding:0 12px; font-weight:700; font-size:13px; cursor:pointer;}
+  .sheet textarea{font-family:inherit; resize:vertical;}
   @media (prefers-reduced-motion:reduce){ *{animation:none !important; transition:none !important;} }
 </style>
 </head>
@@ -677,7 +704,7 @@
   <button class="btn btn-primary" id="btnPhoto">📸 Foto a mi plato</button>
   <button class="btn btn-ghost" id="btnManual">✏️ Manual</button>
 </div>
-<button class="btn btn-ghost" id="btnChat" style="width:100%;margin:-8px 0 20px">💬 Contarle a la IA lo que comí</button>
+<button class="btn btn-ghost" id="btnChat" style="width:100%;margin:-8px 0 20px">🥗 Nutricionista IA · registra o pide ideas</button>
 <input type="file" id="fileInput" accept="image/*" hidden>
 </div>
 
@@ -703,13 +730,30 @@
 <div class="overlay" id="ovChat">
   <div class="sheet chatsheet">
     <button class="closex" data-close="ovChat">✕</button>
-    <h2>💬 Cuéntale a la IA</h2>
+    <div class="chathead"><h2>🥗 Tu nutricionista</h2><button class="gustosbtn" id="btnPrefs">❤️ Mis gustos</button></div>
     <div class="chatlog" id="chatLog"></div>
+    <div class="chatchips" id="chatChips"></div>
     <div class="chatbar">
       <button class="iconbtn" id="chatMic" title="Hablar">🎤</button>
       <textarea id="chatInput" rows="1" enterkeyhint="send" autocapitalize="sentences" autocomplete="off" spellcheck="true" placeholder="Cuéntame qué comiste…"></textarea>
       <button class="iconbtn" id="chatSend" title="Enviar">➤</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== Modal: gustos de comida ===== -->
+<div class="overlay" id="ovPrefs">
+  <div class="sheet">
+    <button class="closex" data-close="ovPrefs">✕</button>
+    <h2>❤️ Gustos de <span id="prefsWho"></span></h2>
+    <div class="hint" style="margin:-6px 0 6px">El nutricionista los usa para recomendarte según la hora. Toca una idea para agregarla o escribe la tuya.</div>
+    <div id="prefsBody"></div>
+    <label>Notas (restricciones, horarios, lo que no te gusta)</label>
+    <textarea id="pNotes" rows="2" maxlength="600" placeholder="Ej: entreno a las 7, no me gusta el pescado, cocino los fines de semana"></textarea>
+    <label>Enfoque o reglas que sigues</label>
+    <textarea id="pApproach" rows="3" maxlength="1500" placeholder="Pega aquí las reglas de tu nutricionista o de quien sigues. Ej: 30–40 g de proteína en cada comida, carbohidratos después de entrenar, sin ultraprocesados."></textarea>
+    <div class="hint">El nutricionista las respeta por sobre sus criterios generales.</div>
+    <button class="btn btn-primary" id="pSave">Guardar gustos</button>
   </div>
 </div>
 
@@ -846,6 +890,8 @@ function applyOp(s, op){
     if("gprot" in g) pr.settings.gprot = g.gprot;
     if("gcarb" in g) pr.settings.gcarb = g.gcarb;
     if("gadj" in g) pr.settings.gadj = !!g.gadj;
+  }else if(op.t === "prefs" && pr){
+    pr.prefs = op.prefs;
   }else if(op.t === "rename" && pr){
     pr.name = op.name;
   }else if(op.t === "key" && op.key){
@@ -1671,13 +1717,116 @@ function showResult(){
 let chatMsgs = [];   // [{role:"user"|"ai", text, comidas?, saved?}]
 let chatBusy = false;
 
+/* ================= gustos de comida + nutricionista ================= */
+const MOMENTOS = [["desayuno","🌅 Desayuno"],["almuerzo","🍽️ Almuerzo"],["once","☕ Once / merienda"],["cena","🌙 Cena"],["snack","🍎 Snacks"]];
+const MOM_LBL = Object.fromEntries(MOMENTOS);
+const MOM_TXT = {desayuno:"el desayuno", almuerzo:"el almuerzo", once:"la once", cena:"la cena", snack:"un snack"};
+const IDEAS = {
+  desayuno: ["Avocado toast", "Panqueques de proteína", "Carrot cake proteico", "Huevos revueltos con pan integral", "Yogurt griego con granola", "Avena proteica"],
+  almuerzo: ["Pollo con arroz y ensalada", "Bowl de salmón", "Wrap de pavo", "Carne con quínoa"],
+  once: ["Tostadas con palta y huevo", "Batido de proteína con plátano", "Carrot cake proteico", "Yogurt con frutos rojos"],
+  cena: ["Tortilla de verduras", "Salmón con verduras", "Omelette con queso", "Ensalada con atún"],
+  snack: ["Batido de proteína", "Barrita de proteína", "Fruta con mantequilla de maní", "Quesillo con tomate"]
+};
+function momentoAhora(){
+  const h = new Date().getHours();
+  return h < 4 ? "cena" : h < 11 ? "desayuno" : h < 16 ? "almuerzo" : h < 20 ? "once" : "cena";
+}
+function getPrefs(){
+  const p = prof().prefs || {};
+  const fav = {};
+  MOMENTOS.forEach(([k]) => fav[k] = ((p.fav || {})[k] || []).slice());
+  return {fav, notes: p.notes || "", approach: p.approach || ""};
+}
+function savePrefs(p){ mutate([{t:"prefs", pid, prefs: p}]); }
+/* agrega un favorito (desde el chat): momento conocido → su lista; "general" → notas */
+function addPref(momento, texto){
+  const p = getPrefs(); texto = String(texto || "").trim().slice(0, 60);
+  if(!texto) return false;
+  if(p.fav[momento]){
+    if(p.fav[momento].some(x => x.toLowerCase() === texto.toLowerCase())) return false;
+    p.fav[momento].push(texto);
+  }else{
+    if(p.notes.toLowerCase().includes(texto.toLowerCase())) return false;
+    p.notes = (p.notes ? p.notes + "; " : "") + texto;
+  }
+  savePrefs(p); return true;
+}
+
+/* preguntas rápidas: cambian según la hora y lo que lleva comido */
+function quickQs(){
+  const m = momentoAhora(), d = dayStats(), left = Math.round(d.goal - d.tot.k);
+  const qs = [["💡 ¿Qué como ahora?", `¿Qué me recomiendas para ${MOM_TXT[m]} según lo que llevo hoy?`]];
+  if(d.gp && d.tot.p < d.gp * .8) qs.push(["🥩 Me falta proteína", `Me faltan ${Math.round(d.gp - d.tot.p)} g de proteína, ¿qué agrego sin pasarme de calorías?`]);
+  qs.push(["🧑‍🍳 Algo para cocinar", `Dame una receta fácil para ${MOM_TXT[m]}, parecida a lo que me gusta.`]);
+  qs.push(["🍫 Snack proteico", "Ideas de snack alto en proteína y que sea rico."]);
+  if(left < 150) qs.push(["🪶 Algo liviano", "Ya casi llego a mi meta, ¿qué puedo comer liviano si me da hambre?"]);
+  else qs.push(["📋 ¿Cómo voy hoy?", "¿Cómo voy hoy con calorías y macros? ¿Qué me falta?"]);
+  return qs;
+}
+function renderChatChips(){
+  const box = $("chatChips");
+  if(!box) return;
+  box.innerHTML = quickQs().map(([l, q]) => `<button data-q="${attr(q)}">${esc(l)}</button>`).join("");
+  box.querySelectorAll("button").forEach(b => b.onclick = () => { if(chatBusy) return; $("chatInput").value = b.dataset.q; sendChat(); });
+}
+
+/* editor de gustos */
+let prefsDraft = null;
+function openPrefs(){
+  prefsDraft = getPrefs();
+  $("prefsWho").textContent = prof().name;
+  $("pNotes").value = prefsDraft.notes;
+  $("pApproach").value = prefsDraft.approach;
+  drawPrefs();
+  open("ovPrefs");
+}
+function drawPrefs(){
+  $("prefsBody").innerHTML = MOMENTOS.map(([k, lbl]) => {
+    const list = prefsDraft.fav[k];
+    const ideas = IDEAS[k].filter(x => !list.some(y => y.toLowerCase() === x.toLowerCase())).slice(0, 4);
+    return `<div class="pmom">
+      <div class="pmh">${lbl}</div>
+      <div class="pchips">${list.map((x, i) => `<span class="pchip on">${esc(x)}<button data-rm="${k}:${i}" aria-label="Quitar ${attr(x)}">✕</button></span>`).join("") || '<span class="pempty">Nada todavía</span>'}</div>
+      ${ideas.length ? `<div class="pchips">${ideas.map(x => `<button class="pchip add" data-add="${k}" data-v="${attr(x)}">＋ ${esc(x)}</button>`).join("")}</div>` : ""}
+      <div class="padd"><input data-in="${k}" maxlength="60" placeholder="Agregar otro…"><button data-addin="${k}">Agregar</button></div>
+    </div>`;
+  }).join("");
+  const body = $("prefsBody");
+  body.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { const [k, i] = b.dataset.rm.split(":"); prefsDraft.fav[k].splice(Number(i), 1); drawPrefs(); });
+  body.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { prefsDraft.fav[b.dataset.add].push(b.dataset.v); drawPrefs(); });
+  const addIn = k => {
+    const inp = body.querySelector(`[data-in="${k}"]`), v = inp.value.trim().slice(0, 60);
+    if(v && !prefsDraft.fav[k].some(y => y.toLowerCase() === v.toLowerCase())) prefsDraft.fav[k].push(v);
+    drawPrefs();
+    const again = $("prefsBody").querySelector(`[data-in="${k}"]`); if(again) again.focus();
+  };
+  body.querySelectorAll("[data-addin]").forEach(b => b.onclick = () => addIn(b.dataset.addin));
+  body.querySelectorAll("[data-in]").forEach(inp => inp.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); addIn(inp.dataset.in); } }));
+}
+$("pSave").onclick = () => {
+  // lo escrito en los campos "Agregar otro…" sin apretar Agregar también se guarda
+  $("prefsBody").querySelectorAll("[data-in]").forEach(inp => { const v = inp.value.trim().slice(0, 60); if(v) prefsDraft.fav[inp.dataset.in].push(v); });
+  prefsDraft.notes = $("pNotes").value.trim();
+  prefsDraft.approach = $("pApproach").value.trim();
+  savePrefs(prefsDraft);
+  close("ovPrefs"); toast("Gustos guardados ✓");
+  if($("ovChat").classList.contains("open")) renderChat();
+};
+
 function renderChat(){
   const log = $("chatLog");
+  renderChatChips();
   if(!chatMsgs.length){
-    log.innerHTML = '<div class="bub a">¡Hola! Cuéntame qué comiste, escribiendo o con el micrófono 🎤. Yo estimo las calorías y tú confirmas antes de guardar. También puedes preguntarme qué comer según lo que te queda.</div>' +
-      '<button class="linkbtn" id="chatReco" style="align-self:flex-start;width:auto;padding:9px 14px;border-style:solid;color:var(--accent)">💡 ¿Qué me recomiendas comer?</button>';
-    const rb = $("chatReco");
-    if(rb) rb.onclick = () => { $("chatInput").value = "¿Qué me recomiendas comer según lo que me queda de hoy?"; sendChat(); };
+    const d = dayStats(), m = momentoAhora(), left = Math.round(d.goal - d.tot.k), pf = getPrefs();
+    const favs = pf.fav[m].length;
+    const resumen = d.es.length
+      ? `Llevas ${Math.round(d.tot.k)} de ${d.goal} kcal${d.gp ? " y " + Math.round(d.tot.p) + " de " + d.gp + " g de proteína" : ""} (${left >= 0 ? "te quedan " + left : "te pasaste por " + (-left)}).`
+      : `Todavía no registras nada hoy; tu meta son ${d.goal} kcal.`;
+    log.innerHTML = `<div class="bub a">¡Hola${prof().name ? ", " + esc(prof().name) : ""}! Soy tu nutricionista 🥗. Son las ${esc(nowTime())}, hora de ${MOM_TXT[m]}. ${esc(resumen)}<br><br>Cuéntame qué comiste (escribiendo o con 🎤) y lo registro, o pregúntame qué comer: uso lo que ya llevas, la hora y tus gustos.</div>` +
+      (favs ? "" : `<button class="linkbtn" id="chatPrefsHint" style="align-self:flex-start;width:auto;padding:9px 14px;border-style:solid;color:var(--accent)">❤️ Cuéntame qué te gusta comer en ${MOM_TXT[m]}</button>`);
+    const ph = $("chatPrefsHint");
+    if(ph) ph.onclick = openPrefs;
   }else{
     log.innerHTML = chatMsgs.map((m, i) => {
       let h = `<div class="bub ${m.role === "user" ? "u" : "a"}">${esc(m.text)}</div>`;
@@ -1691,9 +1840,20 @@ function renderChat(){
       }
       if(m.sugerencias && m.sugerencias.length){
         h += `<div class="proposal">
-          <div class="hint" style="margin:0 0 4px;font-weight:700">💡 Ideas para lo que te queda</div>
-          ${m.sugerencias.map((c, j) => `<div class="prow"><div>${esc(c.nombre)}<small>${esc(c.porcion||"")} · P ${Math.round(c.prot||0)} C ${Math.round(c.carb||0)} G ${Math.round(c.grasa||0)}</small></div>
-            <div style="text-align:right;white-space:nowrap"><b>${Math.round(c.kcal||0)} kcal</b><br><a href="#" data-eat="${i}:${j}" style="color:var(--accent);font-size:12px;font-weight:700;text-decoration:none">+ la comí</a></div></div>`).join("")}
+          <div class="hint" style="margin:0 0 4px;font-weight:700">💡 Ideas para ti</div>
+          ${m.sugerencias.map((c, j) => `<div class="sug">
+            <div class="prow"><div>${esc(c.nombre)}<small>${esc(c.porcion||"")} · P ${Math.round(c.prot||0)} C ${Math.round(c.carb||0)} G ${Math.round(c.grasa||0)}</small></div>
+              <div style="text-align:right;white-space:nowrap"><b>${Math.round(c.kcal||0)} kcal</b><br><a href="#" data-eat="${i}:${j}" class="sact">+ la comí</a></div></div>
+            ${c.receta ? `<details class="receta"><summary>🧑‍🍳 Ver receta</summary><div>${esc(c.receta)}</div></details>` : ""}
+            <a href="#" data-fav="${i}:${j}" class="sact fav">${c._fav ? "❤️ en tus gustos" : "♡ me gusta, guárdalo"}</a>
+          </div>`).join("")}
+        </div>`;
+      }
+      if(m.preferencias && m.preferencias.length){
+        h += `<div class="proposal">
+          <div class="hint" style="margin:0 0 6px;font-weight:700">❤️ ¿Guardo esto en tus gustos?</div>
+          ${m.preferencias.map((p, j) => `<div class="prow"><div>${esc(p.texto)}<small>${esc(MOM_LBL[p.momento] || "General")}</small></div>
+            ${p._saved ? '<span class="sact">✓ guardado</span>' : `<a href="#" data-pref="${i}:${j}" class="sact">Guardar</a>`}</div>`).join("")}
         </div>`;
       }
       return h;
@@ -1719,13 +1879,28 @@ function renderChat(){
     a.textContent = "✓ agregada"; a.onclick = ev2 => ev2.preventDefault();
     toast("Agregado ✓");
   });
+  log.querySelectorAll("[data-fav]").forEach(a => a.onclick = ev => {
+    ev.preventDefault();
+    const [i, j] = a.dataset.fav.split(":").map(Number), c = chatMsgs[i].sugerencias[j];
+    if(c._fav) return;
+    const m = momentoAhora();
+    addPref(m, c.nombre);
+    c._fav = true; a.textContent = "❤️ en tus gustos";
+    toast("Guardado para " + MOM_TXT[m] + " ✓");
+  });
+  log.querySelectorAll("[data-pref]").forEach(a => a.onclick = ev => {
+    ev.preventDefault();
+    const [i, j] = a.dataset.pref.split(":").map(Number), p = chatMsgs[i].preferencias[j];
+    addPref(MOM_LBL[p.momento] ? p.momento : "general", p.texto);
+    p._saved = true; renderChat(); toast("Gusto guardado ✓");
+  });
   log.scrollTop = log.scrollHeight;
 }
 
 function chatStats(){
   const d = dayStats();
   return {
-    name: prof().name, hora: nowTime(),
+    name: prof().name, hora: nowTime(), momento: momentoAhora(),
     kcal: Math.round(d.tot.k), goal: d.goal,
     prot: Math.round(d.tot.p), carb: Math.round(d.tot.c), fat: Math.round(d.tot.f),
     gprot: d.gp || null, gcarb: d.gc || null, gfat: d.gf || null
@@ -1743,7 +1918,12 @@ async function sendChat(){
   try{
     let data;
     if(MOCK){
-      data = {respuesta:"Anotado (demo).", comidas:[{nombre:"Huevos revueltos", porcion:"2 unidades", kcal:180, prot:12, carb:1, grasa:14}]};
+      data = /recom|ide|qué|receta|snack|falta/i.test(text)
+        ? {respuesta:"Para el desayuno te propongo tus favoritos ajustados a lo que te queda (demo).", comidas:[],
+           sugerencias:[{nombre:"Panqueques de proteína", porcion:"3 unidades", kcal:390, prot:32, carb:42, grasa:9, receta:"40 g avena, 1 plátano, 2 huevos, 1 scoop proteína.\nLicúa todo y cocina en sartén antiadherente 2 min por lado."},
+                        {nombre:"Avocado toast con huevo", porcion:"2 tostadas", kcal:420, prot:22, carb:34, grasa:21, receta:""}]}
+        : {respuesta:"Anotado (demo).", comidas:[{nombre:"Huevos revueltos", porcion:"2 unidades", kcal:180, prot:12, carb:1, grasa:14}],
+           preferencias: /gusta|encanta/i.test(text) ? [{momento:"desayuno", texto:"Carrot cake proteico"}] : []};
     }else{
       let resp;
       try{
@@ -1765,7 +1945,11 @@ async function sendChat(){
     }
     const comidas = (Array.isArray(data.comidas) ? data.comidas : []).filter(c => c && Number(c.kcal) > 0);
     const sugerencias = (Array.isArray(data.sugerencias) ? data.sugerencias : []).filter(c => c && c.nombre);
-    chatMsgs.push({role:"ai", text: data.respuesta || (comidas.length ? "Esto entendí:" : "Ok."), comidas, sugerencias});
+    // gustos que la IA detectó en el mensaje (sin repetir los ya guardados)
+    const pf = getPrefs(), known = Object.values(pf.fav).flat().concat(pf.notes).join(" | ").toLowerCase();
+    const preferencias = (Array.isArray(data.preferencias) ? data.preferencias : [])
+      .filter(p => p && typeof p.texto === "string" && p.texto.trim() && !known.includes(p.texto.trim().toLowerCase())).slice(0, 4);
+    chatMsgs.push({role:"ai", text: data.respuesta || (comidas.length ? "Esto entendí:" : "Ok."), comidas, sugerencias, preferencias});
   }catch(err){
     chatMsgs.push({role:"ai", text: "⚠️ " + (err.message || err)});
   }
@@ -1857,6 +2041,7 @@ $("chatMic").onclick = () => {
   try{ startRec(); }catch(e){ toast("No se pudo iniciar el micrófono"); stopMic(); }
 };
 $("chatSend").onclick = sendChat;
+$("btnPrefs").onclick = openPrefs;
 $("chatInput").addEventListener("keydown", e => { if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendChat(); } });
 $("chatInput").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = Math.min(110, e.target.scrollHeight) + "px"; });
 /* el chat se ajusta al área visible: el teclado ya no tapa la caja de texto */
